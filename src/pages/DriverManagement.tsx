@@ -40,17 +40,30 @@ export default function DriverManagement() {
       setNewDriverName('');
       setStatusMessage({ text: `Motorista ${name} cadastrado com sucesso!`, type: 'success' });
       setTimeout(() => setStatusMessage(null), 3000);
-    } catch (e) {
-      setStatusMessage({ text: 'Erro ao cadastrar motorista. Tente novamente.', type: 'error' });
+    } catch (e: any) {
+      setStatusMessage({ 
+        text: e.message || 'Erro ao cadastrar motorista. Tente novamente.', 
+        type: 'error' 
+      });
     } finally {
       setIsAdding(false);
     }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (deletingDriver) {
-      removeDriver(deletingDriver);
-      setDeletingDriver(null);
+      try {
+        await removeDriver(deletingDriver);
+        setStatusMessage({ text: `Motorista ${deletingDriver} removido com sucesso!`, type: 'success' });
+        setTimeout(() => setStatusMessage(null), 3000);
+      } catch (e: any) {
+        setStatusMessage({ 
+          text: e.message || 'Erro ao remover motorista.', 
+          type: 'error' 
+        });
+      } finally {
+        setDeletingDriver(null);
+      }
     }
   };
 

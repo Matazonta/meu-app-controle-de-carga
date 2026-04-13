@@ -182,9 +182,14 @@ export function CargoProvider({ children }: { children: ReactNode }) {
       const response = await fetch('/api/drivers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: normalizedName, password: null })
+        body: JSON.stringify({ name: normalizedName, password: "" })
       });
-      if (!response.ok) throw new Error('Falha ao adicionar motorista');
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha ao adicionar motorista');
+      }
+      
       await fetchData();
     }
   };

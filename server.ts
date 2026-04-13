@@ -8,43 +8,51 @@ import cors from "cors";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const db = new Database("database.db");
+const dbPath = path.join(process.cwd(), "database.db");
+const db = new Database(dbPath);
+
+console.log(`Database initialized at: ${dbPath}`);
 
 // Initialize database tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS registrations (
-    id TEXT PRIMARY KEY,
-    driverName TEXT,
-    productType TEXT,
-    quantity INTEGER,
-    origin TEXT,
-    destination TEXT,
-    timestamp TEXT
-  );
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS registrations (
+      id TEXT PRIMARY KEY,
+      driverName TEXT,
+      productType TEXT,
+      quantity INTEGER,
+      origin TEXT,
+      destination TEXT,
+      timestamp TEXT
+    );
 
-  CREATE TABLE IF NOT EXISTS drivers (
-    name TEXT PRIMARY KEY,
-    password TEXT
-  );
+    CREATE TABLE IF NOT EXISTS drivers (
+      name TEXT PRIMARY KEY,
+      password TEXT
+    );
 
-  CREATE TABLE IF NOT EXISTS km_registrations (
-    id TEXT PRIMARY KEY,
-    date TEXT,
-    time TEXT,
-    vehicle TEXT,
-    driver TEXT,
-    start TEXT,
-    end TEXT,
-    total TEXT
-  );
+    CREATE TABLE IF NOT EXISTS km_registrations (
+      id TEXT PRIMARY KEY,
+      date TEXT,
+      time TEXT,
+      vehicle TEXT,
+      driver TEXT,
+      start TEXT,
+      end TEXT,
+      total TEXT
+    );
 
-  CREATE TABLE IF NOT EXISTS alerts (
-    id TEXT PRIMARY KEY,
-    message TEXT,
-    timestamp TEXT,
-    type TEXT
-  );
-`);
+    CREATE TABLE IF NOT EXISTS alerts (
+      id TEXT PRIMARY KEY,
+      message TEXT,
+      timestamp TEXT,
+      type TEXT
+    );
+  `);
+  console.log("Database tables verified/created successfully");
+} catch (e) {
+  console.error("CRITICAL: Failed to initialize database tables:", e);
+}
 
 // Seed default drivers if empty
 const driverCount = db.prepare("SELECT COUNT(*) as count FROM drivers").get() as { count: number };
@@ -85,17 +93,25 @@ async function startServer() {
 
   app.post("/api/drivers", (req, res) => {
     const { name, password } = req.body;
-    if (!name || name.trim() === "") {
-      return res.status(400).json({ error: "Nome é obrigatório" });
+    const trimmedName = name?.trim();
+    
+    if (!trimmedName) {
+      return res.status(400).json({ error: "Nome do motorista é obrigatório" });
     }
-    console.log(`Adding/Updating driver: ${name}`);
+
     try {
+      // Use INSERT OR REPLACE to handle updates/re-adds gracefully
       db.prepare("INSERT OR REPLACE INTO drivers (name, password) VALUES (?, ?)")
-        .run(name.trim(), password);
+        .run(trimmedName, password || "");
+      
+      console.log(`Driver saved successfully: ${trimmedName}`);
       res.json({ success: true });
     } catch (e) {
       console.error("Error in POST /api/drivers:", e);
-      res.status(500).json({ error: "Erro interno ao salvar motorista" });
+      res.status(500).json({ 
+        error: "Erro ao salvar no banco de dados", 
+        details: e instanceof Error ? e.message : String(e) 
+      });
     }
   });
 

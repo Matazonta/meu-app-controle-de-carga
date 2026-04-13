@@ -18,8 +18,6 @@ export default function ExportConfig() {
         {/* Breadcrumb & Header Section */}
         <div className="mb-10">
           <div className="flex items-center gap-2 text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] mb-3">
-            <span>Painel ADM</span>
-            <ChevronRightIcon size={12} />
             <span className="text-primary">Exportação de Relatório</span>
           </div>
           <h2 className="text-4xl md:text-6xl font-black text-primary tracking-tighter leading-none mb-4 uppercase">Configuração de Exportação</h2>

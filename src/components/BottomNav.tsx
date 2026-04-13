@@ -7,7 +7,7 @@ export default function BottomNav() {
   const navigate = useNavigate();
 
   const navItems = [
-    { label: 'Painel', icon: LayoutDashboard, path: '/dashboard' },
+    { label: 'Painel', icon: LayoutDashboard, path: '/admin/productivity' },
     { label: 'Frota', icon: Truck, path: '/admin/drivers' },
     { label: 'Relatórios', icon: BarChart3, path: '/export' },
     { label: 'Alertas', icon: Bell, path: '#' },
@@ -25,7 +25,7 @@ export default function BottomNav() {
   const items = isDriver ? driverNavItems : navItems;
 
   return (
-    <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center h-20 px-4 bg-surface border-t-2 border-secondary/10 shadow-[0_-4px_20px_0_rgba(0,0,0,0.05)] z-50 md:hidden">
+    <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center h-20 px-4 bg-black border-t-2 border-primary/20 shadow-[0_-4px_20px_0_rgba(0,0,0,0.2)] z-50 md:hidden">
       {items.map((item) => {
         const isActive = location.pathname === item.path;
         const Icon = item.icon;
@@ -33,12 +33,27 @@ export default function BottomNav() {
         return (
           <button
             key={item.label}
-            onClick={() => navigate(item.path)}
+            onClick={() => {
+              if (item.label === 'Alertas') {
+                if (location.pathname !== '/admin/productivity') {
+                  navigate('/admin/productivity');
+                  setTimeout(() => {
+                    const el = document.getElementById('alertas-section');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }, 100);
+                } else {
+                  const el = document.getElementById('alertas-section');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }
+              } else {
+                navigate(item.path);
+              }
+            }}
             className={cn(
               "flex flex-col items-center justify-center py-2 px-4 transition-all duration-200 active:scale-95",
               isActive 
-                ? "bg-secondary text-white rounded-md" 
-                : "text-secondary/60 dark:text-white/60"
+                ? "bg-primary text-white rounded-md" 
+                : "text-white/60"
             )}
           >
             <Icon size={20} />

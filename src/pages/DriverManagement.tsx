@@ -94,7 +94,7 @@ export default function DriverManagement() {
           <div className="divide-y divide-on-surface/5">
             {filteredDrivers.map((driver, index) => (
               <motion.div 
-                key={driver}
+                key={driver.name}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}

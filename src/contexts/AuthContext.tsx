@@ -15,14 +15,20 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('cargo_auth_user');
+    return saved ? JSON.parse(saved) : null;
+  });
 
   const login = (name: string, type: 'driver' | 'admin') => {
-    setUser({ name, type });
+    const newUser: User = { name, type };
+    setUser(newUser);
+    localStorage.setItem('cargo_auth_user', JSON.stringify(newUser));
   };
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('cargo_auth_user');
   };
 
   return (

@@ -1,0 +1,75 @@
+{
+  "entities": {
+    "CargoRegistration": {
+      "title": "Registro de Carga",
+      "description": "Dados de uma carga transportada",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "driverName": { "type": "string" },
+        "productType": { "type": "string" },
+        "quantity": { "type": "number" },
+        "origin": { "type": "string" },
+        "destination": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["driverName", "productType", "quantity", "origin", "destination", "timestamp"]
+    },
+    "KMRegistration": {
+      "title": "Registro de KM",
+      "description": "Dados de quilometragem do veículo",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "vehicle": { "type": "string" },
+        "driver": { "type": "string" },
+        "start": { "type": "string" },
+        "end": { "type": "string" },
+        "total": { "type": "string" }
+      },
+      "required": ["date", "time", "vehicle", "driver", "start"]
+    },
+    "AdminAlert": {
+      "title": "Alerta de Administrador",
+      "description": "Notificações de eventos no sistema",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "message": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "type": { "type": "string", "enum": ["cargo", "km"] }
+      },
+      "required": ["message", "timestamp", "type"]
+    },
+    "DriverAccount": {
+      "title": "Conta de Motorista",
+      "description": "Dados de acesso do motorista",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "password": { "type": "string" }
+      },
+      "required": ["name"]
+    }
+  },
+  "firestore": {
+    "/registrations/{registrationId}": {
+      "schema": "CargoRegistration",
+      "description": "Coleção de registros de carga"
+    },
+    "/km_registrations/{kmId}": {
+      "schema": "KMRegistration",
+      "description": "Coleção de registros de KM"
+    },
+    "/alerts/{alertId}": {
+      "schema": "AdminAlert",
+      "description": "Coleção de alertas para o administrador"
+    },
+    "/drivers/{driverId}": {
+      "schema": "DriverAccount",
+      "description": "Coleção de motoristas cadastrados"
+    }
+  }
+}

@@ -32,11 +32,10 @@ export default function KMRegistration() {
 
     if (activeTab === 'inicial') {
       const newEntry = {
-        id: Date.now(),
         date: dateStr,
         time: timeStr,
         vehicle: 'SC-4592',
-        driver: user?.name || 'João',
+        driver: user?.name || 'Motorista',
         start: kmValue,
         end: '---',
         total: 'Em curso'
@@ -46,7 +45,7 @@ export default function KMRegistration() {
       setKmValue('');
     } else {
       // Find the most recent entry for this vehicle/driver that doesn't have an end KM
-      const entry = kmRegistrations.find(e => e.end === '---' && e.driver === (user?.name || 'João'));
+      const entry = kmRegistrations.find(e => e.end === '---' && e.driver === (user?.name || 'Motorista'));
       
       if (entry) {
         const startKm = parseFloat(entry.start.replace('.', ''));

@@ -2,25 +2,14 @@ import { VerifiedIcon, CheckCircle, FileTextIcon, ShareIcon, Inventory2, MenuIco
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 
+import TopBar from '../components/TopBar';
+
 export default function SuccessScreen() {
   const navigate = useNavigate();
 
   return (
     <div className="bg-surface font-sans text-on-surface min-h-screen flex flex-col">
-      {/* TopAppBar */}
-      <header className="bg-[#f4faff] dark:bg-[#111d23] border-b-4 border-secondary-container flex justify-between items-center w-full px-6 h-20 fixed top-0 z-50">
-        <div className="flex items-center gap-4">
-          <button className="p-2 hover:bg-secondary/10 active:scale-[0.98] transition-transform duration-200 rounded-lg">
-            <MenuIcon className="text-secondary dark:text-[#f4faff]" size={24} />
-          </button>
-          <h1 className="text-secondary dark:text-[#f4faff] font-headline font-bold tracking-tighter uppercase text-xl">Relatórios de Carga</h1>
-        </div>
-        <div className="flex items-center gap-4">
-          <button className="p-2 hover:bg-secondary/10 active:scale-[0.98] transition-transform duration-200 rounded-lg">
-            <UserCircleIcon className="text-secondary dark:text-[#f4faff]" size={24} />
-          </button>
-        </div>
-      </header>
+      <TopBar title="Relatórios de Carga" userType="admin" />
 
       {/* Main Content Canvas */}
       <main className="flex-grow flex items-center justify-center pt-20 pb-20 px-4">
@@ -110,7 +99,7 @@ export default function SuccessScreen() {
                 onClick={() => navigate('/admin/productivity')}
                 className="mt-10 text-primary/60 font-black uppercase text-[11px] tracking-[0.3em] hover:text-primary transition-colors duration-200"
               >
-                Voltar ao Painel Principal
+                Voltar ao Início
               </button>
             </div>
           </div>

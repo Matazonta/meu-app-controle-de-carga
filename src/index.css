@@ -39,3 +39,23 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.2);
 }
+
+/* html5-qrcode overrides */
+#reader {
+  border: none !important;
+}
+#reader__scan_region {
+  background: #000;
+}
+#reader__dashboard_section_csr button {
+  @apply bg-primary text-white px-4 py-2 rounded-lg font-bold uppercase text-xs mt-4;
+}
+#reader__status_span {
+  @apply text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mt-2 block;
+}
+#reader video {
+  border-radius: 1rem;
+  width: 100% !important;
+  height: auto !important;
+  object-fit: cover;
+}

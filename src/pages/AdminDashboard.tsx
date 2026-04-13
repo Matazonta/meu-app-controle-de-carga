@@ -1,4 +1,5 @@
-import { Inventory2, Schedule, Route, TrendingUp, TrendingDown, ZapIcon, DownloadIcon } from '@/src/components/Icons';
+import React from 'react';
+import { Inventory2, Route, TrendingUp, TrendingDown, DownloadIcon, ZapIcon } from '@/src/components/Icons';
 import { motion } from 'motion/react';
 import TopBar from '../components/TopBar';
 import BottomNav from '../components/BottomNav';
@@ -7,7 +8,27 @@ import { useCargo } from '../contexts/CargoContext';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { registrations, kmRegistrations, getDriverProductivity, drivers, alerts, clearAlerts } = useCargo();
+  const { registrations, kmRegistrations, getDriverProductivity, drivers, alerts, clearAlerts, resetDailyData } = useCargo();
+  const [showResetConfirm, setShowResetConfirm] = React.useState(false);
+  const [lastAlertCount, setLastAlertCount] = React.useState(alerts.length);
+  const [shouldPulse, setShouldPulse] = React.useState(false);
+
+  React.useEffect(() => {
+    if (alerts.length > lastAlertCount) {
+      setShouldPulse(true);
+      const timer = setTimeout(() => setShouldPulse(false), 2000);
+      return () => clearTimeout(timer);
+    }
+    setLastAlertCount(alerts.length);
+  }, [alerts.length, lastAlertCount]);
+
+  const handleReset = () => {
+    resetDailyData();
+    setShowResetConfirm(false);
+  };
+
+  const [filterDriver, setFilterDriver] = React.useState('Todos');
+  const [filterType, setFilterType] = React.useState('Todos');
 
   // Calculate heights based on productivity
   const maxProductivity = Math.max(...drivers.map(d => getDriverProductivity(d.name)), 1);
@@ -28,6 +49,17 @@ export default function AdminDashboard() {
     return acc;
   }, 0);
 
+  const allActivities = [
+    ...registrations.map(r => ({ ...r, type: 'CARGA', sortDate: r.timestamp })),
+    ...kmRegistrations.map(k => ({ ...k, type: 'KM', sortDate: k.date.split('/').reverse().join('-') + 'T' + k.time }))
+  ]
+  .sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime())
+  .filter(activity => {
+    const driverMatch = filterDriver === 'Todos' || (activity.type === 'CARGA' ? activity.driverName : activity.driver) === filterDriver;
+    const typeMatch = filterType === 'Todos' || activity.type === filterType;
+    return driverMatch && typeMatch;
+  });
+
   return (
     <div className="bg-surface min-h-screen pb-24 md:pb-0">
       <TopBar title="Controle de Cargas" userType="admin" />
@@ -39,8 +71,8 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <p className="font-sans text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold mb-1">Fleet Management</p>
-            <h1 className="text-5xl font-extrabold tracking-tighter text-primary">Admin Productivity</h1>
+            <h1 className="text-5xl font-extrabold tracking-tighter text-primary">Monitoramento Geral</h1>
+            <p className="text-on-surface-variant font-medium mt-2">Dados de produtividade e quilometragem em tempo real.</p>
           </motion.div>
           
           <div className="flex flex-wrap items-center gap-3">
@@ -56,8 +88,50 @@ export default function AdminDashboard() {
               <DownloadIcon size={20} />
               Exportar
             </button>
+            <button 
+              onClick={() => setShowResetConfirm(true)}
+              className="flex items-center gap-2 bg-amber-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-amber-600 transition-all active:scale-95 shadow-lg"
+            >
+              <ZapIcon size={20} />
+              Reset Diário
+            </button>
           </div>
         </section>
+
+        {/* Reset Confirmation Modal */}
+        {showResetConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-on-surface/10"
+            >
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-6">
+                <ZapIcon size={32} />
+              </div>
+              <h3 className="text-2xl font-black text-primary uppercase tracking-tight mb-4">Confirmar Reset Diário?</h3>
+              <p className="text-on-surface-variant font-medium mb-8 leading-relaxed">
+                Isso irá limpar o <span className="font-bold text-primary">Histórico de KM</span> e os <span className="font-bold text-primary">Alertas</span> para iniciar um novo dia. 
+                <br/><br/>
+                <span className="text-green-600 font-bold">O histórico de cargas será mantido</span> para sua análise semanal de produtividade.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setShowResetConfirm(false)}
+                  className="flex-1 py-4 bg-surface-container-high text-on-surface font-bold rounded-xl hover:bg-surface-container transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleReset}
+                  className="flex-1 py-4 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-all shadow-lg"
+                >
+                  Confirmar Reset
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
 
         {/* Bento Grid KPIs */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -78,33 +152,55 @@ export default function AdminDashboard() {
           />
         </section>
 
-        {/* Main Chart & Sidebar Section */}
+        {/* Main Productivity & Alerts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Chart Container */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             className="lg:col-span-2 bg-white rounded-2xl p-8 shadow-sm border border-on-surface/5"
           >
             <div className="flex items-center justify-between mb-10">
-              <h2 className="text-2xl font-bold tracking-tight text-primary">Produtividade por Motorista</h2>
-              <button className="p-2 hover:bg-surface-container rounded-lg transition-colors">
-                <TrendingUp size={20} className="text-on-surface-variant" />
-              </button>
+              <h2 className="text-2xl font-bold tracking-tight text-primary">Ranking de Produtividade</h2>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Meta: 10/dia</span>
+              </div>
             </div>
             
-            {/* Dynamic Bar Chart */}
-            <div className="h-72 flex items-end justify-between gap-4 px-2">
-              {drivers.map((driver) => {
-                const count = getDriverProductivity(driver.name);
-                const height = maxProductivity > 0 ? `${(count / maxProductivity) * 100}%` : '5%';
+            <div className="space-y-6">
+              {sortedDrivers.map((driver, index) => {
+                const driverKm = kmRegistrations
+                  .filter(r => r.driver === driver.name && r.total !== 'Em curso')
+                  .reduce((acc, curr) => {
+                    const value = parseFloat(curr.total.replace(' km', ''));
+                    return acc + (isNaN(value) ? 0 : value);
+                  }, 0);
+
                 return (
-                  <Bar 
-                    key={driver.name} 
-                    height={height} 
-                    label={driver.name} 
-                    active={count > 0} 
-                  />
+                  <div key={driver.name} className="group">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black ${index < 3 ? 'bg-primary text-white' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                          {index + 1}
+                        </span>
+                        <div className="flex flex-col">
+                          <span className="font-bold text-on-surface group-hover:text-primary transition-colors">{driver.name}</span>
+                          <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">{driverKm.toLocaleString()} KM Percorridos</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-xs font-black text-primary">{driver.deliveries} <span className="text-[10px] text-on-surface-variant uppercase">Cargas</span></span>
+                        <span className="text-[10px] font-bold text-on-surface-variant">{Math.round(driver.progress)}%</span>
+                      </div>
+                    </div>
+                    <div className="w-full h-3 bg-surface-container-low rounded-full overflow-hidden border border-on-surface/5">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${driver.progress}%` }}
+                        transition={{ duration: 1, ease: "easeOut" }}
+                        className={`h-full rounded-full ${index === 0 ? 'bg-primary shadow-[0_0_10px_rgba(188,1,0,0.3)]' : 'bg-primary/60'}`}
+                      />
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -113,65 +209,51 @@ export default function AdminDashboard() {
               <div className="flex gap-6">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-primary rounded-md shadow-sm"></div>
-                  <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Meta Atingida</span>
+                  <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Líder</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-primary/20 rounded-md"></div>
-                  <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Em Progresso</span>
+                  <div className="w-4 h-4 bg-primary/60 rounded-md"></div>
+                  <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Operacional</span>
                 </div>
               </div>
-              <button className="text-xs font-black text-primary uppercase tracking-widest hover:underline">Ver Detalhes do Ranking</button>
+              <button className="text-xs font-black text-primary uppercase tracking-widest hover:underline">Ver Relatório Completo</button>
             </div>
           </motion.div>
 
-          {/* Alerts & KM History Sidebar */}
-          <div className="flex flex-col gap-6">
-            {/* Real-time Alerts */}
-            <div className="bg-surface-container-low rounded-2xl p-8 border border-on-surface/5">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-xl font-bold tracking-tight text-primary uppercase">Alertas em Tempo Real</h2>
-                <button 
-                  onClick={clearAlerts}
-                  className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest hover:text-primary transition-colors"
-                >
-                  Limpar
-                </button>
-              </div>
-              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                {alerts.length > 0 ? (
-                  alerts.map((alert) => (
-                    <motion.div 
-                      key={alert.id}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className={`p-4 rounded-xl border-l-4 shadow-sm ${alert.type === 'cargo' ? 'bg-blue-50 border-blue-500' : 'bg-amber-50 border-amber-500'}`}
-                    >
-                      <p className="text-xs font-bold text-on-surface leading-snug mb-2">{alert.message}</p>
-                      <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">{alert.timestamp}</span>
-                    </motion.div>
-                  ))
-                ) : (
-                  <div className="text-center py-12">
-                    <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest opacity-50">Nenhum alerta recente</p>
-                  </div>
-                )}
-              </div>
+          {/* Alerts Sidebar */}
+          <div 
+            id="alertas-section" 
+            className={`bg-surface-container-low rounded-2xl p-8 border border-on-surface/5 transition-all duration-500 ${shouldPulse ? 'ring-4 ring-primary/30 bg-primary/5' : ''}`}
+          >
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-xl font-bold tracking-tight text-primary uppercase">Alertas Recentes</h2>
+              <button 
+                onClick={clearAlerts}
+                className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest hover:text-primary transition-colors"
+              >
+                Limpar
+              </button>
             </div>
-
-            {/* Fleet Status Summary */}
-            <div className="bg-surface-container-low rounded-2xl p-8 border border-on-surface/5">
-              <h2 className="text-xl font-bold tracking-tight mb-8 text-primary uppercase">Ranking de Produtividade</h2>
-              <div className="space-y-4">
-                {sortedDrivers.slice(0, 5).map((driver, index) => (
-                  <DriverStatus 
-                    key={driver.name}
-                    rank={`#${index + 1}`} 
-                    name={driver.name} 
-                    deliveries={driver.deliveries} 
-                    progress={driver.progress || 5} 
-                  />
-                ))}
-              </div>
+            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+              {alerts.length > 0 ? (
+                alerts.map((alert) => (
+                  <motion.div 
+                    key={alert.id}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className={`p-4 rounded-xl border-l-4 shadow-sm ${alert.type === 'cargo' ? 'bg-blue-50 border-blue-500' : 'bg-amber-50 border-amber-500'}`}
+                  >
+                    <p className="text-xs font-bold text-on-surface leading-snug mb-2">{alert.message}</p>
+                    <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">
+                      {new Date(alert.timestamp).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest opacity-50">Nenhum alerta recente</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -220,19 +302,49 @@ export default function AdminDashboard() {
 
         {/* Unified Activity Database (Excel-like) */}
         <section className="mt-12 mb-12">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
             <div className="flex items-center gap-4">
               <div className="bg-primary p-2 rounded-lg text-white">
                 <Inventory2 size={24} />
               </div>
-              <h2 className="text-2xl font-extrabold text-primary tracking-tight uppercase">Banco de Dados Geral (Excel)</h2>
+              <h2 className="text-2xl font-extrabold text-primary tracking-tight uppercase">Banco de Dados Geral</h2>
             </div>
-            <button 
-              onClick={() => navigate('/export')}
-              className="flex items-center gap-2 text-xs font-black text-primary uppercase tracking-widest hover:underline"
-            >
-              <DownloadIcon size={16} /> Baixar Planilha Completa
-            </button>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-on-surface/10 shadow-sm">
+                <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Motorista:</span>
+                <select 
+                  value={filterDriver}
+                  onChange={(e) => setFilterDriver(e.target.value)}
+                  className="text-xs font-bold text-primary bg-transparent border-none focus:ring-0 cursor-pointer"
+                >
+                  <option value="Todos">Todos</option>
+                  {drivers.map(d => (
+                    <option key={d.name} value={d.name}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-on-surface/10 shadow-sm">
+                <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Tipo:</span>
+                <select 
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="text-xs font-bold text-primary bg-transparent border-none focus:ring-0 cursor-pointer"
+                >
+                  <option value="Todos">Todos</option>
+                  <option value="CARGA">Carga</option>
+                  <option value="KM">KM</option>
+                </select>
+              </div>
+
+              <button 
+                onClick={() => navigate('/export')}
+                className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary-container transition-all shadow-md"
+              >
+                <DownloadIcon size={16} /> Exportar
+              </button>
+            </div>
           </div>
 
           <div className="bg-white rounded-2xl shadow-xl border border-on-surface/10 overflow-hidden">
@@ -250,13 +362,7 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-on-surface/5">
-                  {/* Combine and sort all activities */}
-                  {[
-                    ...registrations.map(r => ({ ...r, type: 'CARGA', sortDate: r.timestamp })),
-                    ...kmRegistrations.map(k => ({ ...k, type: 'KM', sortDate: k.date.split('/').reverse().join('-') + 'T' + k.time }))
-                  ]
-                  .sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime())
-                  .map((activity: any, idx) => (
+                  {allActivities.map((activity: any, idx) => (
                     <tr key={idx} className="hover:bg-surface-container-low transition-colors group">
                       <td className="px-6 py-4 border-r border-on-surface/5">
                         <div className="flex flex-col">
@@ -303,10 +409,10 @@ export default function AdminDashboard() {
                       </td>
                     </tr>
                   ))}
-                  {registrations.length === 0 && kmRegistrations.length === 0 && (
+                  {allActivities.length === 0 && (
                     <tr>
                       <td colSpan={7} className="px-6 py-12 text-center text-on-surface-variant font-medium italic">
-                        Nenhum dado registrado no sistema até o momento.
+                        Nenhum dado encontrado para os filtros selecionados.
                       </td>
                     </tr>
                   )}
@@ -347,33 +453,3 @@ function KpiCard({ title, value, unit, trend, icon, isPositive }: any) {
   );
 }
 
-function Bar({ height, label, active }: any) {
-  return (
-    <div className="flex flex-col items-center flex-1 gap-4 h-full">
-      <div className="w-full relative flex-1 flex flex-col justify-end">
-        <motion.div 
-          initial={{ height: 0 }}
-          animate={{ height }}
-          transition={{ duration: 1, ease: "easeOut" }}
-          className={`w-full rounded-t-lg shadow-sm ${active ? 'bg-primary' : 'bg-primary/20'}`}
-        />
-      </div>
-      <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">{label}</span>
-    </div>
-  );
-}
-
-function DriverStatus({ rank, name, deliveries, progress }: any) {
-  return (
-    <div className="bg-white p-4 rounded-xl flex items-center gap-4 shadow-sm border border-on-surface/5">
-      <div className="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center font-black text-primary text-sm">{rank}</div>
-      <div className="flex-1">
-        <p className="font-bold text-sm text-primary">{name}</p>
-        <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">{deliveries} Entregas Concluídas</p>
-      </div>
-      <div className="w-12 h-1.5 rounded-full bg-surface-container-high overflow-hidden">
-        <div className="bg-primary h-full" style={{ width: `${progress}%` }}></div>
-      </div>
-    </div>
-  );
-}

@@ -7,6 +7,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './contexts/AuthContext';
 import { CargoProvider } from './contexts/CargoContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import StatusBanner from './components/StatusBanner';
 import Login from './pages/Login';
 import DriverDashboard from './pages/DriverDashboard';
 import CargoRegistration from './pages/CargoRegistration';
@@ -20,6 +21,7 @@ export default function App() {
   return (
     <AuthProvider>
       <CargoProvider>
+        <StatusBanner />
         <Router>
           <Routes>
           <Route path="/login" element={<Login />} />

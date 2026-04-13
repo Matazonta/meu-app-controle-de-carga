@@ -1,5 +1,5 @@
 {
   "name": "Controle de Cargas",
   "description": "Sistema de gestão logística e controle de frotas com dashboards para motoristas e administradores.",
-  "requestFramePermissions": []
+  "requestFramePermissions": ["camera"]
 }

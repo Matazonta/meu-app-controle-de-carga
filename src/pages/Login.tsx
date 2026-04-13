@@ -1,14 +1,26 @@
 import { Truck, User, Lock, ArrowRight, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCargo } from '../contexts/CargoContext';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { user, login } = useAuth();
   const { drivers, updateDriverPassword } = useCargo();
+  
+  // Redirect if already logged in
+  React.useEffect(() => {
+    if (user) {
+      if (user.type === 'admin') {
+        navigate('/admin/productivity');
+      } else {
+        navigate('/driver/dashboard');
+      }
+    }
+  }, [user, navigate]);
+
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [adminPassword, setAdminPassword] = useState('');

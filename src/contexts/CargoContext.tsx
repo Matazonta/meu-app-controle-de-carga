@@ -67,25 +67,20 @@ export function CargoProvider({ children }: { children: ReactNode }) {
   const fetchData = useCallback(async () => {
     try {
       const [regsRes, kmRes, driversRes, alertsRes] = await Promise.all([
-        fetch('/api/registrations'),
-        fetch('/api/km'),
-        fetch('/api/drivers'),
-        fetch('/api/alerts')
+        fetch('/api/registrations').then(r => r.json()).catch(() => []),
+        fetch('/api/km').then(r => r.json()).catch(() => []),
+        fetch('/api/drivers').then(r => r.json()).catch(() => []),
+        fetch('/api/alerts').then(r => r.json()).catch(() => [])
       ]);
 
-      const [regs, km, drvs, alrts] = await Promise.all([
-        regsRes.json(),
-        kmRes.json(),
-        driversRes.json(),
-        alertsRes.json()
-      ]);
-
-      setRegistrations(regs);
-      setKmRegistrations(km);
-      setDrivers(drvs);
-      setAlerts(alrts);
+      setRegistrations(regsRes);
+      setKmRegistrations(kmRes);
+      setDrivers(driversRes);
+      setAlerts(alertsRes);
+      
+      console.log(`Data fetched: ${driversRes.length} drivers`);
     } catch (e) {
-      console.error("Error fetching data:", e);
+      console.error("Error in fetchData:", e);
     }
   }, []);
 

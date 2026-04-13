@@ -13,11 +13,37 @@ export default function DriverManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingDriver, setEditingDriver] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [deletingDriver, setDeletingDriver] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
 
-  const handleAddDriver = () => {
-    if (newDriverName.trim()) {
-      addDriver(newDriverName.trim());
+  const handleAddDriver = async () => {
+    const name = newDriverName.trim();
+    if (!name) return;
+    
+    if (drivers.find(d => d.name.toLowerCase() === name.toLowerCase())) {
+      setStatusMessage({ text: 'Este motorista já está cadastrado.', type: 'error' });
+      return;
+    }
+
+    setIsAdding(true);
+    setStatusMessage(null);
+    try {
+      await addDriver(name);
       setNewDriverName('');
+      setStatusMessage({ text: `Motorista ${name} cadastrado com sucesso!`, type: 'success' });
+      setTimeout(() => setStatusMessage(null), 3000);
+    } catch (e) {
+      setStatusMessage({ text: 'Erro ao cadastrar motorista. Tente novamente.', type: 'error' });
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (deletingDriver) {
+      removeDriver(deletingDriver);
+      setDeletingDriver(null);
     }
   };
 
@@ -64,21 +90,34 @@ export default function DriverManagement() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="flex gap-2">
-              <input 
-                type="text"
-                placeholder="Nome do Motorista"
-                value={newDriverName}
-                onChange={(e) => setNewDriverName(e.target.value)}
-                className="px-4 py-4 bg-white border border-on-surface/5 rounded-xl focus:ring-2 focus:ring-primary text-on-surface font-medium shadow-sm"
-              />
-              <button 
-                onClick={handleAddDriver}
-                className="bg-primary text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-primary-container active:scale-95 transition-all shadow-lg"
-              >
-                <UserPlusIcon size={20} />
-                <span className="hidden sm:inline">Adicionar</span>
-              </button>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <input 
+                  type="text"
+                  placeholder="Nome do Motorista"
+                  value={newDriverName}
+                  onChange={(e) => setNewDriverName(e.target.value)}
+                  disabled={isAdding}
+                  className="px-4 py-4 bg-white border border-on-surface/5 rounded-xl focus:ring-2 focus:ring-primary text-on-surface font-medium shadow-sm disabled:opacity-50"
+                />
+                <button 
+                  onClick={handleAddDriver}
+                  disabled={isAdding || !newDriverName.trim()}
+                  className="bg-primary text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-primary-container active:scale-95 transition-all shadow-lg disabled:opacity-50 disabled:scale-100"
+                >
+                  <UserPlusIcon size={20} />
+                  <span className="hidden sm:inline">{isAdding ? 'Salvando...' : 'Adicionar'}</span>
+                </button>
+              </div>
+              {statusMessage && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`text-[10px] font-bold uppercase tracking-widest px-2 ${statusMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}
+                >
+                  {statusMessage.text}
+                </motion.div>
+              )}
             </div>
           </div>
         </div>
@@ -148,7 +187,7 @@ export default function DriverManagement() {
                         <EditIcon size={20} />
                       </button>
                       <button 
-                        onClick={() => removeDriver(driver.name)}
+                        onClick={() => setDeletingDriver(driver.name)}
                         className="p-3 hover:bg-red-50 rounded-xl transition-colors text-red-600 border border-red-100"
                       >
                         <TrashIcon size={20} />
@@ -165,6 +204,40 @@ export default function DriverManagement() {
             )}
           </div>
         </div>
+
+        {/* Delete Confirmation Modal */}
+        {deletingDriver && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-on-surface/10"
+            >
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mb-6">
+                <TrashIcon size={32} />
+              </div>
+              <h3 className="text-2xl font-black text-primary uppercase tracking-tight mb-4">Excluir Motorista?</h3>
+              <p className="text-on-surface-variant font-medium mb-8 leading-relaxed">
+                Você está prestes a excluir <span className="font-bold text-primary">{deletingDriver}</span>. 
+                Esta ação não pode ser desfeita e o motorista perderá acesso ao sistema.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setDeletingDriver(null)}
+                  className="flex-1 py-4 bg-surface-container-high text-on-surface font-bold rounded-xl hover:bg-surface-container transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleConfirmDelete}
+                  className="flex-1 py-4 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg"
+                >
+                  Excluir
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </main>
       
       <BottomNav />

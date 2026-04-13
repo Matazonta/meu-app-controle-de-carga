@@ -23,6 +23,7 @@ export default function CargoRegistration() {
   });
 
   const [isScanning, setIsScanning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isScanning) {
@@ -109,18 +110,27 @@ export default function CargoRegistration() {
     setIsScanning(true);
   };
 
-  const handleSave = () => {
-    if (!formData.quantity) return;
+  const handleSave = async () => {
+    if (!formData.quantity) {
+      setError('Por favor, insira a quantidade.');
+      return;
+    }
     
-    addRegistration({
-      driverName: user?.name || 'Motorista',
-      productType: formData.productType,
-      quantity: parseInt(formData.quantity),
-      origin: formData.origin,
-      destination: formData.destination
-    });
-    
-    navigate('/driver/dashboard');
+    try {
+      setError(null);
+      await addRegistration({
+        driverName: user?.name || 'Motorista',
+        productType: formData.productType,
+        quantity: parseInt(formData.quantity),
+        origin: formData.origin,
+        destination: formData.destination
+      });
+      
+      navigate('/driver/dashboard');
+    } catch (e) {
+      console.error("Error saving registration:", e);
+      setError('Erro ao salvar registro. Verifique sua conexão.');
+    }
   };
 
   return (
@@ -128,6 +138,15 @@ export default function CargoRegistration() {
       <TopBar title="Controle de Cargas" showMenu={false} />
       
       <main className="max-w-4xl mx-auto px-4 pt-28 space-y-6">
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-red-100 text-red-700 p-4 rounded-xl text-xs font-bold text-center border border-red-200"
+          >
+            {error}
+          </motion.div>
+        )}
         {/* QR Scanner Modal */}
         <AnimatePresence>
           {isScanning && (

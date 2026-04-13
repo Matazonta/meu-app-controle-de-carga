@@ -13,6 +13,7 @@ export default function KMRegistration() {
   const { kmRegistrations, addKMRegistration, updateKMRegistration } = useCargo();
   const [activeTab, setActiveTab] = useState<'inicial' | 'final'>('inicial');
   const [kmValue, setKmValue] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   const driverKm = kmRegistrations
     .filter(r => r.driver === (user?.name || 'João') && r.total !== 'Em curso')
@@ -23,44 +24,61 @@ export default function KMRegistration() {
 
   const estimatedDiesel = (driverKm / 2.8).toFixed(1);
 
-  const handleConfirm = () => {
-    if (!kmValue) return;
+  const handleConfirm = async () => {
+    if (!kmValue) {
+      setError('Por favor, insira o valor do KM.');
+      return;
+    }
 
     const now = new Date();
     const dateStr = now.toLocaleDateString('pt-BR');
     const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-    if (activeTab === 'inicial') {
-      const newEntry = {
-        date: dateStr,
-        time: timeStr,
-        vehicle: 'SC-4592',
-        driver: user?.name || 'Motorista',
-        start: kmValue,
-        end: '---',
-        total: 'Em curso'
-      };
-      addKMRegistration(newEntry);
-      setActiveTab('final');
-      setKmValue('');
-    } else {
-      // Find the most recent entry for this vehicle/driver that doesn't have an end KM
-      const entry = kmRegistrations.find(e => e.end === '---' && e.driver === (user?.name || 'Motorista'));
-      
-      if (entry) {
-        const startKm = parseFloat(entry.start.replace('.', ''));
-        const endKm = parseFloat(kmValue.replace('.', ''));
-        const total = endKm - startKm;
-
-        const updatedEntry = {
-          ...entry,
-          end: kmValue,
-          total: `${total > 0 ? total : 0} km`
+    try {
+      setError(null);
+      if (activeTab === 'inicial') {
+        const newEntry = {
+          date: dateStr,
+          time: timeStr,
+          vehicle: 'SC-4592',
+          driver: user?.name || 'Motorista',
+          start: kmValue,
+          end: '---',
+          total: 'Em curso'
         };
-        updateKMRegistration(updatedEntry);
-        setActiveTab('inicial');
+        await addKMRegistration(newEntry);
+        setActiveTab('final');
         setKmValue('');
+      } else {
+        // Find the most recent entry for this vehicle/driver that doesn't have an end KM
+        const entry = kmRegistrations.find(e => e.end === '---' && e.driver === (user?.name || 'Motorista'));
+        
+        if (entry) {
+          const startKm = parseFloat(entry.start.replace('.', ''));
+          const endKm = parseFloat(kmValue.replace('.', ''));
+          
+          if (endKm < startKm) {
+            setError('O KM final não pode ser menor que o inicial.');
+            return;
+          }
+
+          const total = endKm - startKm;
+
+          const updatedEntry = {
+            ...entry,
+            end: kmValue,
+            total: `${total > 0 ? total : 0} km`
+          };
+          await updateKMRegistration(updatedEntry);
+          setActiveTab('inicial');
+          setKmValue('');
+        } else {
+          setError('Nenhum registro inicial encontrado para finalizar.');
+        }
       }
+    } catch (e) {
+      console.error("Error saving KM:", e);
+      setError('Erro ao salvar KM. Verifique sua conexão.');
     }
   };
 
@@ -69,6 +87,15 @@ export default function KMRegistration() {
       <TopBar title="Controle de Cargas" showMenu={false} />
       
       <main className="flex-1 w-full max-w-5xl mx-auto px-6 pt-28 pb-8">
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-red-100 text-red-700 p-4 rounded-xl text-xs font-bold text-center border border-red-200 mb-6"
+          >
+            {error}
+          </motion.div>
+        )}
         {/* Hero Section: KM Entry */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
           {/* Left Panel: Input Control */}

@@ -79,17 +79,20 @@ async function startServer() {
   // Drivers
   app.get("/api/drivers", (req, res) => {
     const rows = db.prepare("SELECT * FROM drivers").all();
+    console.log(`Fetching drivers: ${rows.length} found`);
     res.json(rows);
   });
 
   app.post("/api/drivers", (req, res) => {
     const { name, password } = req.body;
+    console.log(`Adding/Updating driver: ${name}`);
     db.prepare("INSERT OR REPLACE INTO drivers (name, password) VALUES (?, ?)")
       .run(name, password);
     res.json({ success: true });
   });
 
   app.delete("/api/drivers/:name", (req, res) => {
+    console.log(`Deleting driver: ${req.params.name}`);
     db.prepare("DELETE FROM drivers WHERE name = ?").run(req.params.name);
     res.json({ success: true });
   });

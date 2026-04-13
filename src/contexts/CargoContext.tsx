@@ -186,8 +186,19 @@ export function CargoProvider({ children }: { children: ReactNode }) {
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Falha ao adicionar motorista');
+        const contentType = response.headers.get("content-type");
+        let errorMessage = 'Falha ao adicionar motorista';
+        
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json().catch(() => ({}));
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } else {
+          const textError = await response.text().catch(() => "");
+          console.error("Server returned non-JSON error:", textError);
+          errorMessage = `Erro do servidor (${response.status})`;
+        }
+        
+        throw new Error(errorMessage);
       }
       
       await fetchData();

@@ -78,39 +78,44 @@ export default function AdminDashboard() {
     });
   }, [kmRegistrations, timeFilter]);
 
-  // Calculate heights based on productivity
-  const getLocalDriverProductivity = (driverName: string) => {
-    return filteredRegistrations.filter((r) => r.driverName.toLowerCase() === driverName.toLowerCase()).length;
-  };
+  const sortedDrivers = React.useMemo(() => {
+    const getLocalDriverProductivity = (driverName: string) => {
+      return filteredRegistrations.filter((r) => r.driverName.toLowerCase() === driverName.toLowerCase()).length;
+    };
 
-  const maxProductivity = Math.max(...drivers.map(d => getLocalDriverProductivity(d.name)), 1);
-  
-  const sortedDrivers = [...drivers]
-    .map(driver => ({
-      name: driver.name,
-      deliveries: getLocalDriverProductivity(driver.name),
-      progress: (getLocalDriverProductivity(driver.name) / maxProductivity) * 100
-    }))
-    .sort((a, b) => b.deliveries - a.deliveries);
+    const maxProductivity = Math.max(...drivers.map(d => getLocalDriverProductivity(d.name)), 1);
+    
+    return [...drivers]
+      .map(driver => ({
+        name: driver.name,
+        deliveries: getLocalDriverProductivity(driver.name),
+        progress: (getLocalDriverProductivity(driver.name) / maxProductivity) * 100
+      }))
+      .sort((a, b) => b.deliveries - a.deliveries);
+  }, [drivers, filteredRegistrations]);
 
-  const totalKm = filteredKmRegistrations.reduce((acc, curr) => {
-    if (curr.total !== 'Em curso') {
-      const value = parseFloat(curr.total.replace(' km', ''));
-      return acc + (isNaN(value) ? 0 : value);
-    }
-    return acc;
-  }, 0);
+  const totalKm = React.useMemo(() => {
+    return filteredKmRegistrations.reduce((acc, curr) => {
+      if (curr.total !== 'Em curso') {
+        const value = parseFloat(curr.total.replace(' km', ''));
+        return acc + (isNaN(value) ? 0 : value);
+      }
+      return acc;
+    }, 0);
+  }, [filteredKmRegistrations]);
 
-  const allActivities = [
-    ...filteredRegistrations.map(r => ({ ...r, type: 'CARGA', sortDate: r.timestamp })),
-    ...filteredKmRegistrations.map(k => ({ ...k, type: 'KM', sortDate: k.date.split('/').reverse().join('-') + 'T' + k.time }))
-  ]
-  .sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime())
-  .filter(activity => {
-    const driverMatch = filterDriver === 'Todos' || (activity.type === 'CARGA' ? activity.driverName : activity.driver) === filterDriver;
-    const typeMatch = filterType === 'Todos' || activity.type === filterType;
-    return driverMatch && typeMatch;
-  });
+  const allActivities = React.useMemo(() => {
+    return [
+      ...filteredRegistrations.map(r => ({ ...r, type: 'CARGA', sortDate: r.timestamp })),
+      ...filteredKmRegistrations.map(k => ({ ...k, type: 'KM', sortDate: k.date.split('/').reverse().join('-') + 'T' + k.time }))
+    ]
+    .sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime())
+    .filter(activity => {
+      const driverMatch = filterDriver === 'Todos' || (activity.type === 'CARGA' ? activity.driverName : activity.driver) === filterDriver;
+      const typeMatch = filterType === 'Todos' || activity.type === filterType;
+      return driverMatch && typeMatch;
+    });
+  }, [filteredRegistrations, filteredKmRegistrations, filterDriver, filterType]);
 
   return (
     <div className="bg-surface min-h-screen pb-24 md:pb-0">

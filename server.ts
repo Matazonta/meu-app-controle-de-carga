@@ -50,6 +50,17 @@ try {
     );
   `);
   console.log("Database tables verified/created successfully");
+  
+  // Log table structures for debugging
+  const tables = ['drivers', 'registrations', 'km_registrations', 'alerts'];
+  tables.forEach(table => {
+    try {
+      const info = db.prepare(`PRAGMA table_info(${table})`).all();
+      console.log(`Table ${table} structure:`, info);
+    } catch (e) {
+      console.error(`Error checking table ${table}:`, e);
+    }
+  });
 } catch (e) {
   console.error("CRITICAL: Failed to initialize database tables:", e);
 }
@@ -92,6 +103,7 @@ async function startServer() {
   });
 
   app.post("/api/drivers", (req, res) => {
+    console.log("POST /api/drivers request body:", req.body);
     const { name, password } = req.body;
     const trimmedName = name?.trim();
     
@@ -165,6 +177,16 @@ async function startServer() {
     db.prepare("DELETE FROM alerts").run();
     db.prepare("UPDATE drivers SET password = NULL").run();
     res.json({ success: true });
+  });
+
+  // Global Error Handler
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("Unhandled Error:", err);
+    res.status(500).json({ 
+      error: "Erro interno no servidor", 
+      message: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   });
 
   // Vite middleware for development

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Inventory2, Route, TrendingUp, TrendingDown, DownloadIcon, ZapIcon } from '@/src/components/Icons';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import TopBar from '../components/TopBar';
 import BottomNav from '../components/BottomNav';
 import { useNavigate } from 'react-router-dom';
@@ -8,7 +8,15 @@ import { useCargo } from '../contexts/CargoContext';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { registrations, kmRegistrations, getDriverProductivity, drivers, alerts, clearAlerts, resetDailyData, hardResetDatabase } = useCargo();
+  const { registrations, kmRegistrations, getDriverProductivity, drivers, alerts, clearAlerts, resetDailyData, hardResetDatabase, isBackgroundSyncing } = useCargo();
+  const [lastUpdated, setLastUpdated] = React.useState(new Date());
+
+  React.useEffect(() => {
+    if (!isBackgroundSyncing) {
+      setLastUpdated(new Date());
+    }
+  }, [isBackgroundSyncing]);
+
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
   const [showHardResetConfirm, setShowHardResetConfirm] = React.useState(false);
   const [lastAlertCount, setLastAlertCount] = React.useState(alerts.length);
@@ -125,7 +133,17 @@ export default function AdminDashboard() {
                 <span className="text-[10px] font-black uppercase tracking-widest">Live</span>
               </div>
             </div>
-            <p className="text-on-surface-variant font-medium mt-2">Dados de produtividade e quilometragem em tempo real.</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-on-surface-variant font-medium">Dados de produtividade e quilometragem em tempo real.</p>
+              <motion.span 
+                key={lastUpdated.getTime()}
+                initial={{ opacity: 0.2 }}
+                animate={{ opacity: 1 }}
+                className="text-[10px] text-on-surface-variant/40 font-bold uppercase tracking-widest"
+              >
+                • Atualizado às {lastUpdated.toLocaleTimeString('pt-BR')}
+              </motion.span>
+            </div>
           </motion.div>
           
           <div className="flex flex-wrap items-center gap-3">
@@ -277,42 +295,51 @@ export default function AdminDashboard() {
             </div>
             
             <div className="space-y-6">
-              {sortedDrivers.map((driver, index) => {
-                const driverKm = filteredKmRegistrations
-                  .filter(r => r.driver === driver.name && r.total !== 'Em curso')
-                  .reduce((acc, curr) => {
-                    const value = parseFloat(curr.total.replace(' km', ''));
-                    return acc + (isNaN(value) ? 0 : value);
-                  }, 0);
+              <AnimatePresence initial={false}>
+                {sortedDrivers.map((driver, index) => {
+                  const driverKm = filteredKmRegistrations
+                    .filter(r => r.driver === driver.name && r.total !== 'Em curso')
+                    .reduce((acc, curr) => {
+                      const value = parseFloat(curr.total.replace(' km', ''));
+                      return acc + (isNaN(value) ? 0 : value);
+                    }, 0);
 
-                return (
-                  <div key={driver.name} className="group">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <span className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black ${index < 3 ? 'bg-primary text-white' : 'bg-surface-container-high text-on-surface-variant'}`}>
-                          {index + 1}
-                        </span>
-                        <div className="flex flex-col">
-                          <span className="font-bold text-on-surface group-hover:text-primary transition-colors">{driver.name}</span>
-                          <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">{driverKm.toLocaleString()} KM Percorridos</span>
+                  return (
+                    <motion.div 
+                      key={driver.name}
+                      layout
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="group"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <span className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black ${index < 3 ? 'bg-primary text-white' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                            {index + 1}
+                          </span>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-on-surface group-hover:text-primary transition-colors">{driver.name}</span>
+                            <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">{driverKm.toLocaleString()} KM Percorridos</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-xs font-black text-primary">{driver.deliveries} <span className="text-[10px] text-on-surface-variant uppercase">Cargas</span></span>
+                          <span className="text-[10px] font-bold text-on-surface-variant">{Math.round(driver.progress)}%</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-xs font-black text-primary">{driver.deliveries} <span className="text-[10px] text-on-surface-variant uppercase">Cargas</span></span>
-                        <span className="text-[10px] font-bold text-on-surface-variant">{Math.round(driver.progress)}%</span>
+                      <div className="w-full h-3 bg-surface-container-low rounded-full overflow-hidden border border-on-surface/5">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${driver.progress}%` }}
+                          transition={{ duration: 1, ease: "easeOut" }}
+                          className={`h-full rounded-full ${index === 0 ? 'bg-primary shadow-[0_0_10px_rgba(188,1,0,0.3)]' : 'bg-primary/60'}`}
+                        />
                       </div>
-                    </div>
-                    <div className="w-full h-3 bg-surface-container-low rounded-full overflow-hidden border border-on-surface/5">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${driver.progress}%` }}
-                        transition={{ duration: 1, ease: "easeOut" }}
-                        className={`h-full rounded-full ${index === 0 ? 'bg-primary shadow-[0_0_10px_rgba(188,1,0,0.3)]' : 'bg-primary/60'}`}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
             </div>
             
             <div className="mt-10 pt-8 border-t border-on-surface/5 flex flex-wrap justify-between gap-4">
@@ -382,31 +409,49 @@ export default function AdminDashboard() {
               <div className="col-span-2 text-right">Total</div>
             </div>
             
-            <div className="flex flex-col divide-y divide-on-surface/5">
-              {filteredKmRegistrations.length > 0 ? (
-                filteredKmRegistrations.map((item) => (
-                  <div key={item.id} className="grid grid-cols-12 gap-4 px-8 py-6 items-center hover:bg-surface-container-low transition-colors">
-                    <div className="col-span-4">
-                      <div className="flex items-center gap-2">
-                        <p className="font-bold text-primary">{item.date}</p>
-                        <span className="text-[10px] bg-surface-container px-2 py-0.5 rounded font-bold text-on-surface-variant">{item.time}</span>
+            <motion.div 
+              layout
+              className="flex flex-col divide-y divide-on-surface/5"
+            >
+              <AnimatePresence initial={false}>
+                {filteredKmRegistrations.length > 0 ? (
+                  filteredKmRegistrations.map((item) => (
+                    <motion.div 
+                      key={item.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      layout
+                      className="grid grid-cols-12 gap-4 px-8 py-6 items-center hover:bg-surface-container-low transition-colors"
+                    >
+                      <div className="col-span-4">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-primary">{item.date}</p>
+                          <span className="text-[10px] bg-surface-container px-2 py-0.5 rounded font-bold text-on-surface-variant">{item.time}</span>
+                        </div>
+                        <p className="text-[10px] text-on-surface-variant font-black uppercase tracking-widest mt-1">Motorista: {item.driver}</p>
+                        <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest">Veículo: {item.vehicle}</p>
                       </div>
-                      <p className="text-[10px] text-on-surface-variant font-black uppercase tracking-widest mt-1">Motorista: {item.driver}</p>
-                      <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest">Veículo: {item.vehicle}</p>
-                    </div>
-                    <div className="col-span-3 text-center font-headline font-bold text-on-surface">{item.start}</div>
-                    <div className="col-span-3 text-center font-headline font-bold text-on-surface">{item.end}</div>
-                    <div className="col-span-2 text-right">
-                      <span className={`px-3 py-1 rounded-full font-bold text-xs whitespace-nowrap ${item.total === 'Em curso' ? 'bg-amber-100 text-amber-700' : 'bg-primary/10 text-primary'}`}>
-                        {item.total}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="p-12 text-center text-on-surface-variant font-medium">Nenhum registro de KM encontrado.</div>
-              )}
-            </div>
+                      <div className="col-span-3 text-center font-headline font-bold text-on-surface">{item.start}</div>
+                      <div className="col-span-3 text-center font-headline font-bold text-on-surface">{item.end}</div>
+                      <div className="col-span-2 text-right">
+                        <span className={`px-3 py-1 rounded-full font-bold text-xs whitespace-nowrap ${item.total === 'Em curso' ? 'bg-amber-100 text-amber-700' : 'bg-primary/10 text-primary'}`}>
+                          {item.total}
+                        </span>
+                      </div>
+                    </motion.div>
+                  ))
+                ) : (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="p-12 text-center text-on-surface-variant font-medium"
+                  >
+                    Nenhum registro de KM encontrado.
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
           </div>
         </section>
 
@@ -472,53 +517,62 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-on-surface/5">
-                  {allActivities.map((activity: any, idx) => (
-                    <tr key={idx} className="hover:bg-surface-container-low transition-colors group">
-                      <td className="px-6 py-4 border-r border-on-surface/5">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-primary text-sm">
-                            {activity.type === 'CARGA' ? new Date(activity.timestamp).toLocaleDateString('pt-BR') : activity.date}
-                          </span>
-                          <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">
-                            {activity.type === 'CARGA' ? new Date(activity.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : activity.time}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 border-r border-on-surface/5">
-                        <span className="font-black text-xs uppercase tracking-tight text-on-surface">
-                          {activity.type === 'CARGA' ? activity.driverName : activity.driver}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 border-r border-on-surface/5">
-                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                          activity.type === 'CARGA' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
-                        }`}>
-                          {activity.type}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 border-r border-on-surface/5">
-                        {activity.type === 'CARGA' ? (
-                          <div className="text-xs font-medium text-on-surface-variant">
-                            <p><span className="font-bold text-primary">PROD:</span> {activity.productType}</p>
-                            <p><span className="font-bold text-primary">ROTA:</span> {activity.origin} → {activity.destination}</p>
+                  <AnimatePresence initial={false}>
+                    {allActivities.map((activity: any, idx) => (
+                      <motion.tr 
+                        key={activity.id || idx}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, scale: 0.98 }}
+                        layout
+                        className="hover:bg-surface-container-low transition-colors group"
+                      >
+                        <td className="px-6 py-4 border-r border-on-surface/5">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-primary text-sm">
+                              {activity.type === 'CARGA' ? new Date(activity.timestamp).toLocaleDateString('pt-BR') : activity.date}
+                            </span>
+                            <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">
+                              {activity.type === 'CARGA' ? new Date(activity.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : activity.time}
+                            </span>
                           </div>
-                        ) : (
-                          <span className="text-[10px] text-on-surface-variant italic">N/A (Registro de KM)</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 border-r border-on-surface/5 text-center font-mono text-xs font-bold">
-                        {activity.type === 'KM' ? activity.start : '-'}
-                      </td>
-                      <td className="px-6 py-4 border-r border-on-surface/5 text-center font-mono text-xs font-bold">
-                        {activity.type === 'KM' ? activity.end : '-'}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="font-black text-sm text-primary">
-                          {activity.type === 'CARGA' ? `${activity.quantity} un` : activity.total}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-6 py-4 border-r border-on-surface/5">
+                          <span className="font-black text-xs uppercase tracking-tight text-on-surface">
+                            {activity.type === 'CARGA' ? activity.driverName : activity.driver}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 border-r border-on-surface/5">
+                          <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                            activity.type === 'CARGA' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {activity.type}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 border-r border-on-surface/5">
+                          {activity.type === 'CARGA' ? (
+                            <div className="text-xs font-medium text-on-surface-variant">
+                              <p><span className="font-bold text-primary">PROD:</span> {activity.productType}</p>
+                              <p><span className="font-bold text-primary">ROTA:</span> {activity.origin} → {activity.destination}</p>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-on-surface-variant italic">N/A (Registro de KM)</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 border-r border-on-surface/5 text-center font-mono text-xs font-bold">
+                          {activity.type === 'KM' ? activity.start : '-'}
+                        </td>
+                        <td className="px-6 py-4 border-r border-on-surface/5 text-center font-mono text-xs font-bold">
+                          {activity.type === 'KM' ? activity.end : '-'}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="font-black text-sm text-primary">
+                            {activity.type === 'CARGA' ? `${activity.quantity} un` : activity.total}
+                          </span>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
                   {allActivities.length === 0 && (
                     <tr>
                       <td colSpan={7} className="px-6 py-12 text-center text-on-surface-variant font-medium italic">
@@ -552,7 +606,14 @@ function KpiCard({ title, value, unit, trend, icon, isPositive }: any) {
         <h3 className="font-sans text-xs font-bold uppercase tracking-widest text-on-surface-variant">{title}</h3>
       </div>
       <div className="flex items-baseline gap-2 mt-4 relative z-10">
-        <span className="text-5xl font-black tracking-tight text-primary">{value}</span>
+        <motion.span 
+          key={value}
+          initial={{ opacity: 0.5, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-5xl font-black tracking-tight text-primary"
+        >
+          {value}
+        </motion.span>
         {unit && <span className="text-2xl font-bold text-on-surface-variant">{unit}</span>}
         <span className={`font-bold text-xs px-2 py-1 rounded-full flex items-center gap-1 ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
           {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}

@@ -84,9 +84,11 @@ export function CargoProvider({ children }: { children: ReactNode }) {
       setAlerts(alertsRes);
       
       if (!silent) {
-        setTimeout(() => setIsSyncing(false), 500);
+        // Only show full sync indicator for a brief moment
+        setTimeout(() => setIsSyncing(false), 300);
       } else {
-        setTimeout(() => setIsBackgroundSyncing(false), 500);
+        // Background sync is very subtle, no artificial delay needed
+        setIsBackgroundSyncing(false);
       }
     } catch (e) {
       console.error("Error in fetchData:", e);

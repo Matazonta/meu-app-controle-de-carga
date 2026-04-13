@@ -1,17 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { 
-  collection, 
-  addDoc, 
-  onSnapshot, 
-  query, 
-  orderBy, 
-  setDoc, 
-  doc, 
-  deleteDoc,
-  getDocs,
-  writeBatch
-} from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 
 export interface CargoRegistration {
   id: string;
@@ -53,17 +40,17 @@ interface CargoContextType {
   alerts: AdminAlert[];
   isOffline: boolean;
   isSyncing: boolean;
-  addRegistration: (registration: Omit<CargoRegistration, 'id' | 'timestamp'>) => void;
-  addKMRegistration: (registration: Omit<KMRegistration, 'id'>) => void;
-  updateKMRegistration: (registration: KMRegistration) => void;
+  addRegistration: (registration: Omit<CargoRegistration, 'id' | 'timestamp'>) => Promise<void>;
+  addKMRegistration: (registration: Omit<KMRegistration, 'id'>) => Promise<void>;
+  updateKMRegistration: (registration: KMRegistration) => Promise<void>;
   getDriverProductivity: (driverName: string) => number;
-  addDriver: (name: string) => void;
-  removeDriver: (name: string) => void;
-  updateDriverName: (oldName: string, newName: string) => void;
-  updateDriverPassword: (name: string, password: string) => void;
-  clearAlerts: () => void;
-  resetDailyData: () => void;
-  hardResetDatabase: () => void;
+  addDriver: (name: string) => Promise<void>;
+  removeDriver: (name: string) => Promise<void>;
+  updateDriverName: (oldName: string, newName: string) => Promise<void>;
+  updateDriverPassword: (name: string, password: string) => Promise<void>;
+  clearAlerts: () => Promise<void>;
+  resetDailyData: () => Promise<void>;
+  hardResetDatabase: () => Promise<void>;
 }
 
 const CargoContext = createContext<CargoContextType | undefined>(undefined);
@@ -77,54 +64,43 @@ export function CargoProvider({ children }: { children: ReactNode }) {
   const [drivers, setDrivers] = useState<DriverAccount[]>([]);
   const [alerts, setAlerts] = useState<AdminAlert[]>([]);
 
-  // Firestore Real-time Listeners
-  useEffect(() => {
-    const qRegs = query(collection(db, 'registrations'), orderBy('timestamp', 'desc'));
-    const unsubRegs = onSnapshot(qRegs, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CargoRegistration));
-      setRegistrations(data);
-    });
+  const fetchData = useCallback(async () => {
+    try {
+      const [regsRes, kmRes, driversRes, alertsRes] = await Promise.all([
+        fetch('/api/registrations'),
+        fetch('/api/km'),
+        fetch('/api/drivers'),
+        fetch('/api/alerts')
+      ]);
 
-    const qKm = query(collection(db, 'km_registrations'), orderBy('date', 'desc'));
-    const unsubKm = onSnapshot(qKm, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as KMRegistration));
-      setKmRegistrations(data);
-    });
+      const [regs, km, drvs, alrts] = await Promise.all([
+        regsRes.json(),
+        kmRes.json(),
+        driversRes.json(),
+        alertsRes.json()
+      ]);
 
-    const unsubDrivers = onSnapshot(collection(db, 'drivers'), (snapshot) => {
-      if (snapshot.empty) {
-        // Seed default drivers if none exist
-        const defaultDrivers = [
-          'Robison', 'Wesley', 'Gil', 'Zonta', 'Eduardo', 'Luis', 'Joel'
-        ];
-        defaultDrivers.forEach(name => {
-          setDoc(doc(db, 'drivers', name), { name, password: null });
-        });
-      } else {
-        const data = snapshot.docs.map(doc => doc.data() as DriverAccount);
-        setDrivers(data);
-      }
-    });
-
-    const qAlerts = query(collection(db, 'alerts'), orderBy('timestamp', 'desc'));
-    const unsubAlerts = onSnapshot(qAlerts, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdminAlert));
-      setAlerts(data);
-    });
-
-    return () => {
-      unsubRegs();
-      unsubKm();
-      unsubDrivers();
-      unsubAlerts();
-    };
+      setRegistrations(regs);
+      setKmRegistrations(km);
+      setDrivers(drvs);
+      setAlerts(alrts);
+    } catch (e) {
+      console.error("Error fetching data:", e);
+    }
   }, []);
 
-  // Listen for online/offline status
+  useEffect(() => {
+    fetchData();
+    // Poll every 5 seconds for "real-time" updates
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
   useEffect(() => {
     const handleOnline = () => {
       setIsOffline(false);
       setIsSyncing(true);
+      fetchData();
       setTimeout(() => setIsSyncing(false), 2000);
     };
     const handleOffline = () => setIsOffline(true);
@@ -136,49 +112,50 @@ export function CargoProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [fetchData]);
 
   const addAlert = async (message: string, type: 'cargo' | 'km') => {
-    try {
-      await addDoc(collection(db, 'alerts'), {
-        message,
-        timestamp: new Date().toISOString(),
-        type
-      });
-    } catch (e) {
-      console.error("Error adding alert: ", e);
-    }
+    const id = Math.random().toString(36).substring(2, 15);
+    const timestamp = new Date().toISOString();
+    await fetch('/api/alerts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, message, timestamp, type })
+    });
+    fetchData();
   };
 
   const addRegistration = async (reg: Omit<CargoRegistration, 'id' | 'timestamp'>) => {
-    try {
-      const timestamp = new Date().toISOString();
-      await addDoc(collection(db, 'registrations'), {
-        ...reg,
-        timestamp
-      });
-      addAlert(`Nova carga registrada por ${reg.driverName}: ${reg.productType} de ${reg.origin} para ${reg.destination}`, 'cargo');
-    } catch (e) {
-      console.error("Error adding registration: ", e);
-    }
+    const id = Math.random().toString(36).substring(2, 15);
+    const timestamp = new Date().toISOString();
+    await fetch('/api/registrations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...reg, id, timestamp })
+    });
+    addAlert(`Nova carga registrada por ${reg.driverName}: ${reg.productType} de ${reg.origin} para ${reg.destination}`, 'cargo');
+    fetchData();
   };
 
   const addKMRegistration = async (reg: Omit<KMRegistration, 'id'>) => {
-    try {
-      await addDoc(collection(db, 'km_registrations'), reg);
-      addAlert(`KM Inicial registrado por ${reg.driver}: ${reg.start} KM (Veículo: ${reg.vehicle})`, 'km');
-    } catch (e) {
-      console.error("Error adding KM registration: ", e);
-    }
+    const id = Math.random().toString(36).substring(2, 15);
+    await fetch('/api/km', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...reg, id })
+    });
+    addAlert(`KM Inicial registrado por ${reg.driver}: ${reg.start} KM (Veículo: ${reg.vehicle})`, 'km');
+    fetchData();
   };
 
   const updateKMRegistration = async (reg: KMRegistration) => {
-    try {
-      await setDoc(doc(db, 'km_registrations', reg.id), reg);
-      addAlert(`KM Final registrado por ${reg.driver}: ${reg.end} KM. Total: ${reg.total} (Veículo: ${reg.vehicle})`, 'km');
-    } catch (e) {
-      console.error("Error updating KM registration: ", e);
-    }
+    await fetch('/api/km', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reg)
+    });
+    addAlert(`KM Final registrado por ${reg.driver}: ${reg.end} KM. Total: ${reg.total} (Veículo: ${reg.vehicle})`, 'km');
+    fetchData();
   };
 
   const getDriverProductivity = (driverName: string) => {
@@ -187,104 +164,55 @@ export function CargoProvider({ children }: { children: ReactNode }) {
 
   const addDriver = async (name: string) => {
     if (!drivers.find(d => d.name === name)) {
-      try {
-        await setDoc(doc(db, 'drivers', name), { name, password: null });
-      } catch (e) {
-        console.error("Error adding driver: ", e);
-      }
+      await fetch('/api/drivers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, password: null })
+      });
+      fetchData();
     }
   };
 
   const removeDriver = async (name: string) => {
-    try {
-      await deleteDoc(doc(db, 'drivers', name));
-    } catch (e) {
-      console.error("Error removing driver: ", e);
-    }
+    await fetch(`/api/drivers/${name}`, { method: 'DELETE' });
+    fetchData();
   };
 
   const updateDriverName = async (oldName: string, newName: string) => {
-    try {
-      const batch = writeBatch(db);
-      
-      // Update driver doc
-      batch.set(doc(db, 'drivers', newName), { name: newName, password: drivers.find(d => d.name === oldName)?.password || null });
-      batch.delete(doc(db, 'drivers', oldName));
-
-      await batch.commit();
-      
-      // Note: In a real app, we'd also update all registrations and KM docs.
-      // For this prototype, we'll focus on the primary driver record.
-    } catch (e) {
-      console.error("Error updating driver name: ", e);
-    }
+    const driver = drivers.find(d => d.name === oldName);
+    await fetch(`/api/drivers/${oldName}`, { method: 'DELETE' });
+    await fetch('/api/drivers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName, password: driver?.password || null })
+    });
+    fetchData();
   };
 
   const updateDriverPassword = async (name: string, password: string) => {
-    try {
-      await setDoc(doc(db, 'drivers', name), { name, password }, { merge: true });
-    } catch (e) {
-      console.error("Error updating driver password: ", e);
-    }
+    await fetch('/api/drivers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, password })
+    });
+    fetchData();
   };
 
   const clearAlerts = async () => {
-    try {
-      const snapshot = await getDocs(collection(db, 'alerts'));
-      const batch = writeBatch(db);
-      snapshot.docs.forEach(doc => batch.delete(doc.ref));
-      await batch.commit();
-    } catch (e) {
-      console.error("Error clearing alerts: ", e);
-    }
+    await fetch('/api/alerts', { method: 'DELETE' });
+    fetchData();
   };
 
   const resetDailyData = async () => {
-    try {
-      const batch = writeBatch(db);
-      
-      // Clear KM registrations
-      const kmSnapshot = await getDocs(collection(db, 'km_registrations'));
-      kmSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-      
-      // Clear alerts
-      const alertsSnapshot = await getDocs(collection(db, 'alerts'));
-      alertsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-      
-      await batch.commit();
-      addAlert('Sistema resetado para o novo dia. Histórico de cargas preservado.', 'cargo');
-    } catch (e) {
-      console.error("Error resetting daily data: ", e);
-    }
+    await fetch('/api/reset-daily', { method: 'POST' });
+    addAlert('Sistema resetado para o novo dia. Histórico de cargas preservado.', 'cargo');
+    fetchData();
   };
 
   const hardResetDatabase = async () => {
-    try {
-      const batch = writeBatch(db);
-      
-      // Clear ALL registrations (Cargas)
-      const regSnapshot = await getDocs(collection(db, 'registrations'));
-      regSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-
-      // Clear ALL KM registrations
-      const kmSnapshot = await getDocs(collection(db, 'km_registrations'));
-      kmSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-      
-      // Clear ALL alerts
-      const alertsSnapshot = await getDocs(collection(db, 'alerts'));
-      alertsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-
-      // Reset Driver passwords
-      const driversSnapshot = await getDocs(collection(db, 'drivers'));
-      driversSnapshot.docs.forEach(doc => {
-        batch.update(doc.ref, { password: null });
-      });
-      
-      await batch.commit();
-      addAlert('RESET TOTAL REALIZADO. Todo o banco de dados foi limpo.', 'cargo');
-    } catch (e) {
-      console.error("Error performing hard reset: ", e);
-    }
+    await fetch('/api/hard-reset', { method: 'POST' });
+    addAlert('RESET TOTAL REALIZADO. Todo o banco de dados foi limpo.', 'cargo');
+    fetchData();
   };
 
   return (

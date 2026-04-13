@@ -208,6 +208,16 @@ export default function CargoRegistration() {
                       <option>Gabinetes</option>
                       <option>Cadeiras</option>
                       <option>Mesas</option>
+                      <optgroup label="Leva ALE">
+                        {Array.from({ length: 30 }, (_, i) => (
+                          <option key={`ale-${i+1}`} value={`Leva ${i+1} ALE`}>Leva {i+1} ALE</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Leva Estoque">
+                        {Array.from({ length: 30 }, (_, i) => (
+                          <option key={`estoque-${i+1}`} value={`Leva ${i+1} Estoque`}>Leva {i+1} Estoque</option>
+                        ))}
+                      </optgroup>
                     </select>
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant">
                       <Inventory2 size={20} />

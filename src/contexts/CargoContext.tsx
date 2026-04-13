@@ -63,6 +63,7 @@ interface CargoContextType {
   updateDriverPassword: (name: string, password: string) => void;
   clearAlerts: () => void;
   resetDailyData: () => void;
+  hardResetDatabase: () => void;
 }
 
 const CargoContext = createContext<CargoContextType | undefined>(undefined);
@@ -257,6 +258,35 @@ export function CargoProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const hardResetDatabase = async () => {
+    try {
+      const batch = writeBatch(db);
+      
+      // Clear ALL registrations (Cargas)
+      const regSnapshot = await getDocs(collection(db, 'registrations'));
+      regSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+
+      // Clear ALL KM registrations
+      const kmSnapshot = await getDocs(collection(db, 'km_registrations'));
+      kmSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+      
+      // Clear ALL alerts
+      const alertsSnapshot = await getDocs(collection(db, 'alerts'));
+      alertsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+
+      // Reset Driver passwords
+      const driversSnapshot = await getDocs(collection(db, 'drivers'));
+      driversSnapshot.docs.forEach(doc => {
+        batch.update(doc.ref, { password: null });
+      });
+      
+      await batch.commit();
+      addAlert('RESET TOTAL REALIZADO. Todo o banco de dados foi limpo.', 'cargo');
+    } catch (e) {
+      console.error("Error performing hard reset: ", e);
+    }
+  };
+
   return (
     <CargoContext.Provider value={{ 
       registrations, 
@@ -274,7 +304,8 @@ export function CargoProvider({ children }: { children: ReactNode }) {
       updateDriverName,
       updateDriverPassword,
       clearAlerts,
-      resetDailyData
+      resetDailyData,
+      hardResetDatabase
     }}>
       {children}
     </CargoContext.Provider>

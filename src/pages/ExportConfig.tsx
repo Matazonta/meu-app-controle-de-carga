@@ -4,11 +4,98 @@ import TopBar from '../components/TopBar';
 import BottomNav from '../components/BottomNav';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useCargo } from '../contexts/CargoContext';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function ExportConfig() {
   const navigate = useNavigate();
+  const { registrations, kmRegistrations, drivers, getDriverProductivity } = useCargo();
   const [reportType, setReportType] = useState('produtividade');
-  const [format, setFormat] = useState('excel');
+  const [format, setFormat] = useState('pdf');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const handleExport = () => {
+    if (format === 'pdf') {
+      generatePDF();
+    } else {
+      // Fallback for other formats
+      navigate('/success');
+    }
+  };
+
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('pt-BR');
+    const timeStr = now.toLocaleTimeString('pt-BR');
+
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(188, 1, 0); // Primary color
+    doc.text('CONTROLE DE CARGAS - RELATÓRIO', 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Gerado em: ${dateStr} às ${timeStr}`, 14, 30);
+    doc.text(`Tipo: ${reportType.toUpperCase()}`, 14, 35);
+
+    if (reportType === 'produtividade') {
+      const tableData = drivers.map(driver => [
+        driver.name,
+        getDriverProductivity(driver.name).toString(),
+        kmRegistrations
+          .filter(r => r.driver === driver.name && r.total !== 'Em curso')
+          .reduce((acc, curr) => acc + parseFloat(curr.total.replace(' km', '') || '0'), 0)
+          .toLocaleString() + ' km'
+      ]);
+
+      autoTable(doc, {
+        startY: 45,
+        head: [['Motorista', 'Total de Cargas', 'KM Total']],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [188, 1, 0] }
+      });
+    } else if (reportType === 'cargas') {
+      const tableData = registrations.map(reg => [
+        new Date(reg.timestamp).toLocaleDateString('pt-BR'),
+        reg.driverName,
+        reg.productType,
+        reg.quantity.toString(),
+        `${reg.origin} -> ${reg.destination}`
+      ]);
+
+      autoTable(doc, {
+        startY: 45,
+        head: [['Data', 'Motorista', 'Produto', 'Qtd', 'Rota']],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [188, 1, 0] }
+      });
+    } else if (reportType === 'km') {
+      const tableData = kmRegistrations.map(km => [
+        km.date,
+        km.driver,
+        km.vehicle,
+        km.start,
+        km.end,
+        km.total
+      ]);
+
+      autoTable(doc, {
+        startY: 45,
+        head: [['Data', 'Motorista', 'Veículo', 'KM Inicial', 'KM Final', 'Total']],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [188, 1, 0] }
+      });
+    }
+
+    doc.save(`relatorio_${reportType}_${now.getTime()}.pdf`);
+    navigate('/success');
+  };
 
   return (
     <div className="bg-surface min-h-screen pb-24">
@@ -18,6 +105,8 @@ export default function ExportConfig() {
         {/* Breadcrumb & Header Section */}
         <div className="mb-10">
           <div className="flex items-center gap-2 text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] mb-3">
+            <span>Painel ADM</span>
+            <ChevronRightIcon size={12} />
             <span className="text-primary">Exportação de Relatório</span>
           </div>
           <h2 className="text-4xl md:text-6xl font-black text-primary tracking-tighter leading-none mb-4 uppercase">Configuração de Exportação</h2>
@@ -174,7 +263,7 @@ export default function ExportConfig() {
               </div>
 
               <button 
-                onClick={() => navigate('/success')}
+                onClick={handleExport}
                 className="w-full bg-secondary hover:bg-secondary-container text-white py-6 px-8 flex items-center justify-between font-black uppercase tracking-[0.2em] text-sm transition-all group active:scale-[0.98] rounded-xl shadow-xl"
               >
                 Gerar e Exportar

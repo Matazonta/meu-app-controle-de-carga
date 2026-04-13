@@ -8,8 +8,9 @@ import { useCargo } from '../contexts/CargoContext';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { registrations, kmRegistrations, getDriverProductivity, drivers, alerts, clearAlerts, resetDailyData } = useCargo();
+  const { registrations, kmRegistrations, getDriverProductivity, drivers, alerts, clearAlerts, resetDailyData, hardResetDatabase } = useCargo();
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
+  const [showHardResetConfirm, setShowHardResetConfirm] = React.useState(false);
   const [lastAlertCount, setLastAlertCount] = React.useState(alerts.length);
   const [shouldPulse, setShouldPulse] = React.useState(false);
 
@@ -27,21 +28,64 @@ export default function AdminDashboard() {
     setShowResetConfirm(false);
   };
 
+  const handleHardReset = () => {
+    hardResetDatabase();
+    setShowHardResetConfirm(false);
+  };
+
   const [filterDriver, setFilterDriver] = React.useState('Todos');
   const [filterType, setFilterType] = React.useState('Todos');
+  const [timeFilter, setTimeFilter] = React.useState<'Hoje' | 'Semana' | 'Mês'>('Hoje');
+
+  const filteredRegistrations = React.useMemo(() => {
+    return registrations.filter(reg => {
+      const regDate = new Date(reg.timestamp);
+      const now = new Date();
+      if (timeFilter === 'Hoje') {
+        return regDate.toDateString() === now.toDateString();
+      } else if (timeFilter === 'Semana') {
+        const weekAgo = new Date();
+        weekAgo.setDate(now.getDate() - 7);
+        return regDate >= weekAgo;
+      } else {
+        return regDate.getMonth() === now.getMonth() && regDate.getFullYear() === now.getFullYear();
+      }
+    });
+  }, [registrations, timeFilter]);
+
+  const filteredKmRegistrations = React.useMemo(() => {
+    return kmRegistrations.filter(km => {
+      const [day, month, year] = km.date.split('/').map(Number);
+      const kmDate = new Date(year, month - 1, day);
+      const now = new Date();
+      if (timeFilter === 'Hoje') {
+        return kmDate.toDateString() === now.toDateString();
+      } else if (timeFilter === 'Semana') {
+        const weekAgo = new Date();
+        weekAgo.setDate(now.getDate() - 7);
+        return kmDate >= weekAgo;
+      } else {
+        return kmDate.getMonth() === now.getMonth() && kmDate.getFullYear() === now.getFullYear();
+      }
+    });
+  }, [kmRegistrations, timeFilter]);
 
   // Calculate heights based on productivity
-  const maxProductivity = Math.max(...drivers.map(d => getDriverProductivity(d.name)), 1);
+  const getLocalDriverProductivity = (driverName: string) => {
+    return filteredRegistrations.filter((r) => r.driverName.toLowerCase() === driverName.toLowerCase()).length;
+  };
+
+  const maxProductivity = Math.max(...drivers.map(d => getLocalDriverProductivity(d.name)), 1);
   
   const sortedDrivers = [...drivers]
     .map(driver => ({
       name: driver.name,
-      deliveries: getDriverProductivity(driver.name),
-      progress: (getDriverProductivity(driver.name) / maxProductivity) * 100
+      deliveries: getLocalDriverProductivity(driver.name),
+      progress: (getLocalDriverProductivity(driver.name) / maxProductivity) * 100
     }))
     .sort((a, b) => b.deliveries - a.deliveries);
 
-  const totalKm = kmRegistrations.reduce((acc, curr) => {
+  const totalKm = filteredKmRegistrations.reduce((acc, curr) => {
     if (curr.total !== 'Em curso') {
       const value = parseFloat(curr.total.replace(' km', ''));
       return acc + (isNaN(value) ? 0 : value);
@@ -50,8 +94,8 @@ export default function AdminDashboard() {
   }, 0);
 
   const allActivities = [
-    ...registrations.map(r => ({ ...r, type: 'CARGA', sortDate: r.timestamp })),
-    ...kmRegistrations.map(k => ({ ...k, type: 'KM', sortDate: k.date.split('/').reverse().join('-') + 'T' + k.time }))
+    ...filteredRegistrations.map(r => ({ ...r, type: 'CARGA', sortDate: r.timestamp })),
+    ...filteredKmRegistrations.map(k => ({ ...k, type: 'KM', sortDate: k.date.split('/').reverse().join('-') + 'T' + k.time }))
   ]
   .sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime())
   .filter(activity => {
@@ -77,9 +121,24 @@ export default function AdminDashboard() {
           
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex bg-surface-container-high rounded-xl p-1 shadow-inner">
-              <button className="px-6 py-2.5 text-sm font-bold rounded-lg bg-primary text-white shadow-md transition-all">Hoje</button>
-              <button className="px-6 py-2.5 text-sm font-medium text-on-surface-variant hover:text-primary transition-colors">Semana</button>
-              <button className="px-6 py-2.5 text-sm font-medium text-on-surface-variant hover:text-primary transition-colors">Mês</button>
+              <button 
+                onClick={() => setTimeFilter('Hoje')}
+                className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${timeFilter === 'Hoje' ? 'bg-primary text-white shadow-md' : 'text-on-surface-variant hover:text-primary'}`}
+              >
+                Hoje
+              </button>
+              <button 
+                onClick={() => setTimeFilter('Semana')}
+                className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${timeFilter === 'Semana' ? 'bg-primary text-white shadow-md' : 'text-on-surface-variant hover:text-primary'}`}
+              >
+                Semana
+              </button>
+              <button 
+                onClick={() => setTimeFilter('Mês')}
+                className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${timeFilter === 'Mês' ? 'bg-primary text-white shadow-md' : 'text-on-surface-variant hover:text-primary'}`}
+              >
+                Mês
+              </button>
             </div>
             <button 
               onClick={() => navigate('/export')}
@@ -94,6 +153,13 @@ export default function AdminDashboard() {
             >
               <ZapIcon size={20} />
               Reset Diário
+            </button>
+            <button 
+              onClick={() => setShowHardResetConfirm(true)}
+              className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-all active:scale-95 shadow-lg"
+            >
+              <ZapIcon size={20} />
+              Reset Total
             </button>
           </div>
         </section>
@@ -133,11 +199,46 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* Hard Reset Confirmation Modal */}
+        {showHardResetConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-on-surface/10"
+            >
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mb-6">
+                <ZapIcon size={32} />
+              </div>
+              <h3 className="text-2xl font-black text-red-600 uppercase tracking-tight mb-4">RESET TOTAL DO SISTEMA</h3>
+              <p className="text-on-surface-variant font-medium mb-8 leading-relaxed">
+                <span className="text-red-600 font-black uppercase">Atenção:</span> Esta ação é irreversível. 
+                <br/><br/>
+                Todos os dados de <span className="font-bold text-primary">Cargas</span>, <span className="font-bold text-primary">KM</span> e <span className="font-bold text-primary">Alertas</span> serão excluídos permanentemente do banco de dados para liberar espaço.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setShowHardResetConfirm(false)}
+                  className="flex-1 py-4 bg-surface-container-high text-on-surface font-bold rounded-xl hover:bg-surface-container transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleHardReset}
+                  className="flex-1 py-4 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg"
+                >
+                  LIMPAR TUDO
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {/* Bento Grid KPIs */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <KpiCard 
             title="Total Cargas" 
-            value={registrations.length.toLocaleString()} 
+            value={filteredRegistrations.length.toLocaleString()} 
             trend="+12%" 
             icon={<Inventory2 size={24} />} 
             isPositive={true} 
@@ -168,7 +269,7 @@ export default function AdminDashboard() {
             
             <div className="space-y-6">
               {sortedDrivers.map((driver, index) => {
-                const driverKm = kmRegistrations
+                const driverKm = filteredKmRegistrations
                   .filter(r => r.driver === driver.name && r.total !== 'Em curso')
                   .reduce((acc, curr) => {
                     const value = parseFloat(curr.total.replace(' km', ''));
@@ -273,8 +374,8 @@ export default function AdminDashboard() {
             </div>
             
             <div className="flex flex-col divide-y divide-on-surface/5">
-              {kmRegistrations.length > 0 ? (
-                kmRegistrations.map((item) => (
+              {filteredKmRegistrations.length > 0 ? (
+                filteredKmRegistrations.map((item) => (
                   <div key={item.id} className="grid grid-cols-12 gap-4 px-8 py-6 items-center hover:bg-surface-container-low transition-colors">
                     <div className="col-span-4">
                       <div className="flex items-center gap-2">

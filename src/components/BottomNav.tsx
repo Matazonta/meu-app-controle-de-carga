@@ -1,16 +1,18 @@
-import { LayoutDashboard, Truck, BarChart3, Bell, ShieldCheck, Gauge } from 'lucide-react';
+import { LayoutDashboard, Truck, BarChart3, Bell, ShieldCheck, Gauge, LogOut } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/src/lib/utils';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const navItems = [
     { label: 'Painel', icon: LayoutDashboard, path: '/admin/productivity' },
     { label: 'Frota', icon: Truck, path: '/admin/drivers' },
-    { label: 'Relatórios', icon: BarChart3, path: '/export' },
     { label: 'Alertas', icon: Bell, path: '#' },
+    { label: 'Sair', icon: LogOut, path: '/login' },
   ];
 
   // If we are on driver pages, maybe different nav?
@@ -19,7 +21,7 @@ export default function BottomNav() {
     { label: 'Dashboard', icon: LayoutDashboard, path: '/driver/dashboard' },
     { label: 'Carga', icon: Truck, path: '/driver/cargo' },
     { label: 'KM', icon: Gauge, path: '/driver/km' },
-    { label: 'Admin', icon: ShieldCheck, path: '/admin/drivers' },
+    { label: 'Sair', icon: LogOut, path: '/login' },
   ];
 
   const items = isDriver ? driverNavItems : navItems;
@@ -45,6 +47,9 @@ export default function BottomNav() {
                   const el = document.getElementById('alertas-section');
                   if (el) el.scrollIntoView({ behavior: 'smooth' });
                 }
+              } else if (item.label === 'Sair') {
+                logout();
+                navigate('/login');
               } else {
                 navigate(item.path);
               }

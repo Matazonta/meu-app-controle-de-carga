@@ -41,6 +41,29 @@ export default function AdminDashboard() {
     setShowHardResetConfirm(false);
   };
 
+  const exportDriversToCSV = () => {
+    const headers = ['Nome', 'Status da Senha'];
+    const rows = drivers.map(d => [
+      d.name,
+      d.password ? 'Definida' : 'Não Definida'
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `motoristas_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const [filterDriver, setFilterDriver] = React.useState('Todos');
   const [filterType, setFilterType] = React.useState('Todos');
   const [timeFilter, setTimeFilter] = React.useState<'Hoje' | 'Semana' | 'Mês'>('Hoje');
@@ -294,8 +317,16 @@ export default function AdminDashboard() {
           >
             <div className="flex items-center justify-between mb-10">
               <h2 className="text-2xl font-bold tracking-tight text-primary">Ranking de Produtividade</h2>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Meta: 10/dia</span>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={exportDriversToCSV}
+                  className="flex items-center gap-2 bg-surface-container-high text-primary px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 transition-all shadow-sm border border-primary/10"
+                >
+                  <DownloadIcon size={14} /> Exportar Lista
+                </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Meta: 10/dia</span>
+                </div>
               </div>
             </div>
             

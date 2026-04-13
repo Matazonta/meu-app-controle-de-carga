@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
 import cors from "cors";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -82,9 +83,11 @@ async function startServer() {
 
   // Request Logging Middleware
   app.use((req, res, next) => {
-    if (req.url.startsWith('/api')) {
-      console.log(`[API] ${req.method} ${req.url}`);
-    }
+    const logEntry = `[${new Date().toISOString()}] ${req.method} ${req.url}\n`;
+    try {
+      fs.appendFileSync('access.log', logEntry);
+    } catch (e) {}
+    console.log(`[REQUEST] ${req.method} ${req.url}`);
     next();
   });
 
@@ -204,11 +207,25 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  app.get("/api/debug/logs", (req, res) => {
+    try {
+      const logs = fs.readFileSync('access.log', 'utf8');
+      res.send(`<pre>${logs}</pre>`);
+    } catch (e) {
+      res.send("No logs found.");
+    }
+  });
+
   // Catch-all for API routes that don't match
   app.all("/api/*", (req, res) => {
-    console.warn(`[API 404] ${req.method} ${req.url} - Route not found`);
+    const msg = `[API 404] ${req.method} ${req.url} - Route not found\n`;
+    console.warn(msg);
+    try {
+      fs.appendFileSync('404.log', msg);
+    } catch (e) {}
+    
     res.status(404).json({ 
-      error: "Rota não encontrada", 
+      error: "Rota não encontrada no servidor", 
       method: req.method, 
       path: req.url 
     });

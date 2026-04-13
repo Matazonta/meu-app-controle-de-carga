@@ -204,8 +204,9 @@ export default function Login() {
           </div>
         </div>
 
-        <footer className="mt-12 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-50">
-          © 2023 Controle de Cargas Systems V4.2.0
+        <footer className="mt-12 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-50 text-center">
+          © 2023 Controle de Cargas Systems<br/>
+          <span className="text-primary">v1.0.5 • Servidor Ativo</span>
         </footer>
       </motion.div>
     </div>

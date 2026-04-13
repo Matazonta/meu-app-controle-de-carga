@@ -12,7 +12,7 @@ interface TopBarProps {
 export default function TopBar({ title = 'Relatórios de Carga', showMenu = true, userType }: TopBarProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { isOffline } = useCargo();
+  const { isOffline, isSyncing, isBackgroundSyncing } = useCargo();
 
   const handleLogout = () => {
     logout();
@@ -34,11 +34,24 @@ export default function TopBar({ title = 'Relatórios de Carga', showMenu = true
           >
             {title}
           </h1>
-          {isOffline && (
-            <div className="flex items-center gap-1 text-[8px] font-black text-amber-400 uppercase tracking-widest mt-1">
-              <WifiOff size={10} /> Modo Offline (Cache Ativo)
-            </div>
-          )}
+          <div className="flex items-center gap-2 mt-1">
+            {!isOffline && (
+              <div className="flex items-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isSyncing || isBackgroundSyncing ? 'bg-blue-400' : 'bg-green-400'} opacity-75`}></span>
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${isSyncing || isBackgroundSyncing ? 'bg-blue-500' : 'bg-green-500'}`}></span>
+                </span>
+                <span className={`text-[8px] font-black uppercase tracking-widest ${isSyncing || isBackgroundSyncing ? 'text-blue-400' : 'text-green-400'}`}>
+                  {isSyncing || isBackgroundSyncing ? 'Sincronizando...' : 'Sistema Online'}
+                </span>
+              </div>
+            )}
+            {isOffline && (
+              <div className="flex items-center gap-1 text-[8px] font-black text-amber-400 uppercase tracking-widest">
+                <WifiOff size={10} /> Modo Offline (Cache Ativo)
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-6">

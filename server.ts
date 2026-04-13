@@ -85,10 +85,18 @@ async function startServer() {
 
   app.post("/api/drivers", (req, res) => {
     const { name, password } = req.body;
+    if (!name || name.trim() === "") {
+      return res.status(400).json({ error: "Nome é obrigatório" });
+    }
     console.log(`Adding/Updating driver: ${name}`);
-    db.prepare("INSERT OR REPLACE INTO drivers (name, password) VALUES (?, ?)")
-      .run(name, password);
-    res.json({ success: true });
+    try {
+      db.prepare("INSERT OR REPLACE INTO drivers (name, password) VALUES (?, ?)")
+        .run(name.trim(), password);
+      res.json({ success: true });
+    } catch (e) {
+      console.error("Error in POST /api/drivers:", e);
+      res.status(500).json({ error: "Erro interno ao salvar motorista" });
+    }
   });
 
   app.delete("/api/drivers/:name", (req, res) => {

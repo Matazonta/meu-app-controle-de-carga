@@ -40,6 +40,7 @@ interface CargoContextType {
   alerts: AdminAlert[];
   isOffline: boolean;
   isSyncing: boolean;
+  isBackgroundSyncing: boolean;
   addRegistration: (registration: Omit<CargoRegistration, 'id' | 'timestamp'>) => Promise<void>;
   addKMRegistration: (registration: Omit<KMRegistration, 'id'>) => Promise<void>;
   updateKMRegistration: (registration: KMRegistration) => Promise<void>;
@@ -58,14 +59,18 @@ const CargoContext = createContext<CargoContextType | undefined>(undefined);
 export function CargoProvider({ children }: { children: ReactNode }) {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isBackgroundSyncing, setIsBackgroundSyncing] = useState(false);
   
   const [registrations, setRegistrations] = useState<CargoRegistration[]>([]);
   const [kmRegistrations, setKmRegistrations] = useState<KMRegistration[]>([]);
   const [drivers, setDrivers] = useState<DriverAccount[]>([]);
   const [alerts, setAlerts] = useState<AdminAlert[]>([]);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (silent = false) => {
     try {
+      if (!silent) setIsSyncing(true);
+      else setIsBackgroundSyncing(true);
+      
       const [regsRes, kmRes, driversRes, alertsRes] = await Promise.all([
         fetch('/api/registrations').then(r => r.json()).catch(() => []),
         fetch('/api/km').then(r => r.json()).catch(() => []),
@@ -78,16 +83,22 @@ export function CargoProvider({ children }: { children: ReactNode }) {
       setDrivers(driversRes);
       setAlerts(alertsRes);
       
-      console.log(`Data fetched: ${driversRes.length} drivers`);
+      if (!silent) {
+        setTimeout(() => setIsSyncing(false), 500);
+      } else {
+        setTimeout(() => setIsBackgroundSyncing(false), 500);
+      }
     } catch (e) {
       console.error("Error in fetchData:", e);
+      setIsSyncing(false);
+      setIsBackgroundSyncing(false);
     }
   }, []);
 
   useEffect(() => {
     fetchData();
-    // Poll every 5 seconds for "real-time" updates
-    const interval = setInterval(fetchData, 5000);
+    // Poll every 2 seconds for "real-time" updates (Always Online feel)
+    const interval = setInterval(() => fetchData(true), 2000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
@@ -123,34 +134,40 @@ export function CargoProvider({ children }: { children: ReactNode }) {
   const addRegistration = async (reg: Omit<CargoRegistration, 'id' | 'timestamp'>) => {
     const id = Math.random().toString(36).substring(2, 15);
     const timestamp = new Date().toISOString();
-    await fetch('/api/registrations', {
+    const response = await fetch('/api/registrations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...reg, id, timestamp })
     });
-    addAlert(`Nova carga registrada por ${reg.driverName}: ${reg.productType} de ${reg.origin} para ${reg.destination}`, 'cargo');
-    fetchData();
+    if (!response.ok) throw new Error('Falha ao registrar carga');
+    
+    await addAlert(`Nova carga registrada por ${reg.driverName}: ${reg.productType} de ${reg.origin} para ${reg.destination}`, 'cargo');
+    await fetchData();
   };
 
   const addKMRegistration = async (reg: Omit<KMRegistration, 'id'>) => {
     const id = Math.random().toString(36).substring(2, 15);
-    await fetch('/api/km', {
+    const response = await fetch('/api/km', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...reg, id })
     });
-    addAlert(`KM Inicial registrado por ${reg.driver}: ${reg.start} KM (Veículo: ${reg.vehicle})`, 'km');
-    fetchData();
+    if (!response.ok) throw new Error('Falha ao registrar KM inicial');
+    
+    await addAlert(`KM Inicial registrado por ${reg.driver}: ${reg.start} KM (Veículo: ${reg.vehicle})`, 'km');
+    await fetchData();
   };
 
   const updateKMRegistration = async (reg: KMRegistration) => {
-    await fetch('/api/km', {
+    const response = await fetch('/api/km', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(reg)
     });
-    addAlert(`KM Final registrado por ${reg.driver}: ${reg.end} KM. Total: ${reg.total} (Veículo: ${reg.vehicle})`, 'km');
-    fetchData();
+    if (!response.ok) throw new Error('Falha ao atualizar KM final');
+    
+    await addAlert(`KM Final registrado por ${reg.driver}: ${reg.end} KM. Total: ${reg.total} (Veículo: ${reg.vehicle})`, 'km');
+    await fetchData();
   };
 
   const getDriverProductivity = (driverName: string) => {
@@ -158,39 +175,47 @@ export function CargoProvider({ children }: { children: ReactNode }) {
   };
 
   const addDriver = async (name: string) => {
-    if (!drivers.find(d => d.name === name)) {
-      await fetch('/api/drivers', {
+    const normalizedName = name.trim();
+    if (!drivers.find(d => d.name.toLowerCase() === normalizedName.toLowerCase())) {
+      const response = await fetch('/api/drivers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, password: null })
+        body: JSON.stringify({ name: normalizedName, password: null })
       });
-      fetchData();
+      if (!response.ok) throw new Error('Falha ao adicionar motorista');
+      await fetchData();
     }
   };
 
   const removeDriver = async (name: string) => {
-    await fetch(`/api/drivers/${name}`, { method: 'DELETE' });
-    fetchData();
+    const response = await fetch(`/api/drivers/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Falha ao remover motorista');
+    await fetchData();
   };
 
   const updateDriverName = async (oldName: string, newName: string) => {
     const driver = drivers.find(d => d.name === oldName);
-    await fetch(`/api/drivers/${oldName}`, { method: 'DELETE' });
-    await fetch('/api/drivers', {
+    const deleteRes = await fetch(`/api/drivers/${encodeURIComponent(oldName)}`, { method: 'DELETE' });
+    if (!deleteRes.ok) throw new Error('Falha ao atualizar motorista (erro na remoção)');
+    
+    const addRes = await fetch('/api/drivers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newName, password: driver?.password || null })
+      body: JSON.stringify({ name: newName.trim(), password: driver?.password || null })
     });
-    fetchData();
+    if (!addRes.ok) throw new Error('Falha ao atualizar motorista (erro na inserção)');
+    
+    await fetchData();
   };
 
   const updateDriverPassword = async (name: string, password: string) => {
-    await fetch('/api/drivers', {
+    const response = await fetch('/api/drivers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, password })
     });
-    fetchData();
+    if (!response.ok) throw new Error('Falha ao atualizar senha');
+    await fetchData();
   };
 
   const clearAlerts = async () => {
@@ -218,6 +243,7 @@ export function CargoProvider({ children }: { children: ReactNode }) {
       alerts,
       isOffline,
       isSyncing,
+      isBackgroundSyncing,
       addRegistration, 
       addKMRegistration,
       updateKMRegistration,

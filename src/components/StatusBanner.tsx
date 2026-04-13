@@ -34,19 +34,6 @@ export default function StatusBanner() {
             <span className="text-xs font-black uppercase tracking-widest">Sincronizando dados com o servidor...</span>
           </motion.div>
         )}
-
-        {!isSyncing && !isOffline && (
-          <motion.div
-            key="online"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 1, 1, 0] }}
-            transition={{ duration: 3 }}
-            className="bg-green-600 text-white py-2 px-4 flex items-center justify-center gap-2 shadow-lg"
-          >
-            <CheckCircle2 size={16} />
-            <span className="text-xs font-black uppercase tracking-widest">Conexão Restaurada - Sincronizado</span>
-          </motion.div>
-        )}
       </AnimatePresence>
     </div>
   );

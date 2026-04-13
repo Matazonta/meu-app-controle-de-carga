@@ -115,7 +115,16 @@ export default function AdminDashboard() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <h1 className="text-5xl font-extrabold tracking-tighter text-primary">Monitoramento Geral</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-5xl font-extrabold tracking-tighter text-primary">Monitoramento Geral</h1>
+              <div className="bg-green-100 text-green-700 px-3 py-1 rounded-full flex items-center gap-2 border border-green-200">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                <span className="text-[10px] font-black uppercase tracking-widest">Live</span>
+              </div>
+            </div>
             <p className="text-on-surface-variant font-medium mt-2">Dados de produtividade e quilometragem em tempo real.</p>
           </motion.div>
           

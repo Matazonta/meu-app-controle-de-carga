@@ -40,8 +40,8 @@ export default function Login() {
       return;
     }
 
-    // First access logic: if password is null, set it.
-    if (driver.password === null) {
+    // First access logic: if password is null or empty string, set it.
+    if (driver.password === null || driver.password === "") {
       updateDriverPassword(driver.name, password.trim());
       setError('');
       login(driver.name, 'driver');

@@ -1,4 +1,4 @@
-import { SearchIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon } from '@/src/components/Icons';
+import { SearchIcon, UserPlusIcon, EditIcon, TrashIcon, KeyIcon, ChevronLeftIcon, ChevronRightIcon } from '@/src/components/Icons';
 import { motion, AnimatePresence } from 'motion/react';
 import TopBar from '../components/TopBar';
 import BottomNav from '../components/BottomNav';
@@ -8,12 +8,13 @@ import { useState, useEffect } from 'react';
 
 export default function DriverManagement() {
   const navigate = useNavigate();
-  const { drivers, addDriver, removeDriver, updateDriverName, isBackgroundSyncing } = useCargo();
+  const { drivers, addDriver, removeDriver, updateDriverName, updateDriverPassword, isBackgroundSyncing } = useCargo();
   const [newDriverName, setNewDriverName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingDriver, setEditingDriver] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [deletingDriver, setDeletingDriver] = useState<string | null>(null);
+  const [resettingPassword, setResettingPassword] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
@@ -63,6 +64,24 @@ export default function DriverManagement() {
         });
       } finally {
         setDeletingDriver(null);
+      }
+    }
+  };
+
+  const handleConfirmResetPassword = async () => {
+    if (resettingPassword) {
+      try {
+        // In this system, setting password to null/empty triggers "First Access" mode
+        await updateDriverPassword(resettingPassword, ""); 
+        setStatusMessage({ text: `Senha de ${resettingPassword} resetada! O motorista deve definir uma nova no próximo login.`, type: 'success' });
+        setTimeout(() => setStatusMessage(null), 5000);
+      } catch (e: any) {
+        setStatusMessage({ 
+          text: e.message || 'Erro ao resetar senha.', 
+          type: 'error' 
+        });
+      } finally {
+        setResettingPassword(null);
       }
     }
   };
@@ -225,6 +244,13 @@ export default function DriverManagement() {
                     {!editingDriver && (
                       <>
                         <button 
+                          onClick={() => setResettingPassword(driver.name)}
+                          title="Resetar Senha"
+                          className="p-3 hover:bg-amber-50 rounded-xl transition-colors text-amber-600 border border-amber-100"
+                        >
+                          <KeyIcon size={20} />
+                        </button>
+                        <button 
                           onClick={() => handleStartEdit(driver.name)}
                           className="p-3 hover:bg-primary/10 rounded-xl transition-colors text-primary border border-primary/10"
                         >
@@ -282,6 +308,41 @@ export default function DriverManagement() {
                   className="flex-1 py-4 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg"
                 >
                   Excluir
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Reset Password Confirmation Modal */}
+        {resettingPassword && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-on-surface/10"
+            >
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-6">
+                <KeyIcon size={32} />
+              </div>
+              <h3 className="text-2xl font-black text-primary uppercase tracking-tight mb-4">Resetar Senha?</h3>
+              <p className="text-on-surface-variant font-medium mb-8 leading-relaxed">
+                Deseja resetar a senha de <span className="font-bold text-primary">{resettingPassword}</span>? 
+                <br/><br/>
+                No próximo acesso, o motorista poderá definir uma nova senha.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setResettingPassword(null)}
+                  className="flex-1 py-4 bg-surface-container-high text-on-surface font-bold rounded-xl hover:bg-surface-container transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleConfirmResetPassword}
+                  className="flex-1 py-4 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-all shadow-lg"
+                >
+                  Resetar Senha
                 </button>
               </div>
             </motion.div>

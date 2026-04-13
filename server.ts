@@ -80,7 +80,32 @@ async function startServer() {
   app.use(cors());
   app.use(express.json());
 
+  // Request Logging Middleware
+  app.use((req, res, next) => {
+    if (req.url.startsWith('/api')) {
+      console.log(`[API] ${req.method} ${req.url}`);
+    }
+    next();
+  });
+
   // API Routes
+  app.get("/api/health", (req, res) => {
+    res.json({ 
+      status: "ok", 
+      time: new Date().toISOString(),
+      database: !!db 
+    });
+  });
+
+  app.get("/api/debug/routes", (req, res) => {
+    const routes = app._router.stack
+      .filter((r: any) => r.route)
+      .map((r: any) => ({
+        path: r.route.path,
+        methods: Object.keys(r.route.methods)
+      }));
+    res.json(routes);
+  });
   
   // Registrations
   app.get("/api/registrations", (req, res) => {
@@ -177,6 +202,16 @@ async function startServer() {
     db.prepare("DELETE FROM alerts").run();
     db.prepare("UPDATE drivers SET password = NULL").run();
     res.json({ success: true });
+  });
+
+  // Catch-all for API routes that don't match
+  app.all("/api/*", (req, res) => {
+    console.warn(`[API 404] ${req.method} ${req.url} - Route not found`);
+    res.status(404).json({ 
+      error: "Rota não encontrada", 
+      method: req.method, 
+      path: req.url 
+    });
   });
 
   // Global Error Handler

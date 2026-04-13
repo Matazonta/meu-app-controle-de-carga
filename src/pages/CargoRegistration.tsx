@@ -58,11 +58,25 @@ export default function CargoRegistration() {
   }, [isScanning]);
 
   function onScanSuccess(decodedText: string) {
+    const normalizeProductType = (type: string) => {
+      if (!type) return type;
+      
+      // Normalize "leva ALE X" -> "Leva X ALE"
+      const aleMatch = type.match(/leva\s+ale\s+(\d+)/i);
+      if (aleMatch) return `Leva ${aleMatch[1]} ALE`;
+      
+      // Normalize "leva estoque X" -> "Leva X Estoque"
+      const estoqueMatch = type.match(/leva\s+estoque\s+(\d+)/i);
+      if (estoqueMatch) return `Leva ${estoqueMatch[1]} Estoque`;
+      
+      return type;
+    };
+
     try {
       // Try to parse as JSON first
       const data = JSON.parse(decodedText);
       setFormData({
-        productType: data.productType || formData.productType,
+        productType: normalizeProductType(data.productType || formData.productType),
         quantity: data.quantity?.toString() || formData.quantity,
         origin: data.origin || formData.origin,
         destination: data.destination || formData.destination,
@@ -73,7 +87,7 @@ export default function CargoRegistration() {
       const parts = decodedText.split('|');
       if (parts.length >= 4) {
         setFormData({
-          productType: parts[0],
+          productType: normalizeProductType(parts[0]),
           quantity: parts[1],
           origin: parts[2],
           destination: parts[3],

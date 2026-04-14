@@ -182,25 +182,9 @@ export function CargoProvider({ children }: { children: ReactNode }) {
       const response = await fetch('/api/drivers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: normalizedName, password: "" })
+        body: JSON.stringify({ name: normalizedName, password: null })
       });
-      
-      if (!response.ok) {
-        const contentType = response.headers.get("content-type");
-        let errorMessage = 'Falha ao adicionar motorista';
-        
-        if (contentType && contentType.includes("application/json")) {
-          const errorData = await response.json().catch(() => ({}));
-          errorMessage = errorData.error || errorData.message || errorMessage;
-        } else {
-          const textError = await response.text().catch(() => "");
-          console.error("Server returned non-JSON error:", textError);
-          errorMessage = `Erro do servidor (${response.status})`;
-        }
-        
-        throw new Error(errorMessage);
-      }
-      
+      if (!response.ok) throw new Error('Falha ao adicionar motorista');
       await fetchData();
     }
   };

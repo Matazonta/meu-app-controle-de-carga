@@ -4,67 +4,47 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
 import cors from "cors";
-import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const dbPath = path.join(process.cwd(), "database.db");
-const db = new Database(dbPath);
-
-console.log(`Database initialized at: ${dbPath}`);
+const db = new Database("database.db");
 
 // Initialize database tables
-try {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS registrations (
-      id TEXT PRIMARY KEY,
-      driverName TEXT,
-      productType TEXT,
-      quantity INTEGER,
-      origin TEXT,
-      destination TEXT,
-      timestamp TEXT
-    );
+db.exec(`
+  CREATE TABLE IF NOT EXISTS registrations (
+    id TEXT PRIMARY KEY,
+    driverName TEXT,
+    productType TEXT,
+    quantity INTEGER,
+    origin TEXT,
+    destination TEXT,
+    timestamp TEXT
+  );
 
-    CREATE TABLE IF NOT EXISTS drivers (
-      name TEXT PRIMARY KEY,
-      password TEXT
-    );
+  CREATE TABLE IF NOT EXISTS drivers (
+    name TEXT PRIMARY KEY,
+    password TEXT
+  );
 
-    CREATE TABLE IF NOT EXISTS km_registrations (
-      id TEXT PRIMARY KEY,
-      date TEXT,
-      time TEXT,
-      vehicle TEXT,
-      driver TEXT,
-      start TEXT,
-      end TEXT,
-      total TEXT
-    );
+  CREATE TABLE IF NOT EXISTS km_registrations (
+    id TEXT PRIMARY KEY,
+    date TEXT,
+    time TEXT,
+    vehicle TEXT,
+    driver TEXT,
+    start TEXT,
+    end TEXT,
+    total TEXT
+  );
 
-    CREATE TABLE IF NOT EXISTS alerts (
-      id TEXT PRIMARY KEY,
-      message TEXT,
-      timestamp TEXT,
-      type TEXT
-    );
-  `);
-  console.log("Database tables verified/created successfully");
-  
-  // Log table structures for debugging
-  const tables = ['drivers', 'registrations', 'km_registrations', 'alerts'];
-  tables.forEach(table => {
-    try {
-      const info = db.prepare(`PRAGMA table_info(${table})`).all();
-      console.log(`Table ${table} structure:`, info);
-    } catch (e) {
-      console.error(`Error checking table ${table}:`, e);
-    }
-  });
-} catch (e) {
-  console.error("CRITICAL: Failed to initialize database tables:", e);
-}
+  CREATE TABLE IF NOT EXISTS alerts (
+    id TEXT PRIMARY KEY,
+    message TEXT,
+    timestamp TEXT,
+    type TEXT
+  );
+`);
 
 // Seed default drivers if empty
 const driverCount = db.prepare("SELECT COUNT(*) as count FROM drivers").get() as { count: number };
@@ -81,34 +61,7 @@ async function startServer() {
   app.use(cors());
   app.use(express.json());
 
-  // Request Logging Middleware
-  app.use((req, res, next) => {
-    const logEntry = `[${new Date().toISOString()}] ${req.method} ${req.url}\n`;
-    try {
-      fs.appendFileSync('access.log', logEntry);
-    } catch (e) {}
-    console.log(`[REQUEST] ${req.method} ${req.url}`);
-    next();
-  });
-
   // API Routes
-  app.get("/api/health", (req, res) => {
-    res.json({ 
-      status: "ok", 
-      time: new Date().toISOString(),
-      database: !!db 
-    });
-  });
-
-  app.get("/api/debug/routes", (req, res) => {
-    const routes = app._router.stack
-      .filter((r: any) => r.route)
-      .map((r: any) => ({
-        path: r.route.path,
-        methods: Object.keys(r.route.methods)
-      }));
-    res.json(routes);
-  });
   
   // Registrations
   app.get("/api/registrations", (req, res) => {
@@ -131,27 +84,18 @@ async function startServer() {
   });
 
   app.post("/api/drivers", (req, res) => {
-    console.log("POST /api/drivers request body:", req.body);
     const { name, password } = req.body;
-    const trimmedName = name?.trim();
-    
-    if (!trimmedName) {
-      return res.status(400).json({ error: "Nome do motorista é obrigatório" });
+    if (!name || name.trim() === "") {
+      return res.status(400).json({ error: "Nome é obrigatório" });
     }
-
+    console.log(`Adding/Updating driver: ${name}`);
     try {
-      // Use INSERT OR REPLACE to handle updates/re-adds gracefully
       db.prepare("INSERT OR REPLACE INTO drivers (name, password) VALUES (?, ?)")
-        .run(trimmedName, password || "");
-      
-      console.log(`Driver saved successfully: ${trimmedName}`);
+        .run(name.trim(), password);
       res.json({ success: true });
     } catch (e) {
       console.error("Error in POST /api/drivers:", e);
-      res.status(500).json({ 
-        error: "Erro ao salvar no banco de dados", 
-        details: e instanceof Error ? e.message : String(e) 
-      });
+      res.status(500).json({ error: "Erro interno ao salvar motorista" });
     }
   });
 
@@ -205,40 +149,6 @@ async function startServer() {
     db.prepare("DELETE FROM alerts").run();
     db.prepare("UPDATE drivers SET password = NULL").run();
     res.json({ success: true });
-  });
-
-  app.get("/api/debug/logs", (req, res) => {
-    try {
-      const logs = fs.readFileSync('access.log', 'utf8');
-      res.send(`<pre>${logs}</pre>`);
-    } catch (e) {
-      res.send("No logs found.");
-    }
-  });
-
-  // Catch-all for API routes that don't match
-  app.all("/api/*", (req, res) => {
-    const msg = `[API 404] ${req.method} ${req.url} - Route not found\n`;
-    console.warn(msg);
-    try {
-      fs.appendFileSync('404.log', msg);
-    } catch (e) {}
-    
-    res.status(404).json({ 
-      error: "Rota não encontrada no servidor", 
-      method: req.method, 
-      path: req.url 
-    });
-  });
-
-  // Global Error Handler
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error("Unhandled Error:", err);
-    res.status(500).json({ 
-      error: "Erro interno no servidor", 
-      message: err.message,
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-    });
   });
 
   // Vite middleware for development

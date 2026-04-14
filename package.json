@@ -1,13 +1,12 @@
 {
-  "name": "controle-de-cargas",
+  "name": "react-example",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node server.ts",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },

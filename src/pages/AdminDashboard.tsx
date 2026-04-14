@@ -41,29 +41,6 @@ export default function AdminDashboard() {
     setShowHardResetConfirm(false);
   };
 
-  const exportDriversToCSV = () => {
-    const headers = ['Nome', 'Status da Senha'];
-    const rows = drivers.map(d => [
-      d.name,
-      d.password ? 'Definida' : 'Não Definida'
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `motoristas_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const [filterDriver, setFilterDriver] = React.useState('Todos');
   const [filterType, setFilterType] = React.useState('Todos');
   const [timeFilter, setTimeFilter] = React.useState<'Hoje' | 'Semana' | 'Mês'>('Hoje');
@@ -101,44 +78,39 @@ export default function AdminDashboard() {
     });
   }, [kmRegistrations, timeFilter]);
 
-  const sortedDrivers = React.useMemo(() => {
-    const getLocalDriverProductivity = (driverName: string) => {
-      return filteredRegistrations.filter((r) => r.driverName.toLowerCase() === driverName.toLowerCase()).length;
-    };
+  // Calculate heights based on productivity
+  const getLocalDriverProductivity = (driverName: string) => {
+    return filteredRegistrations.filter((r) => r.driverName.toLowerCase() === driverName.toLowerCase()).length;
+  };
 
-    const maxProductivity = Math.max(...drivers.map(d => getLocalDriverProductivity(d.name)), 1);
-    
-    return [...drivers]
-      .map(driver => ({
-        name: driver.name,
-        deliveries: getLocalDriverProductivity(driver.name),
-        progress: (getLocalDriverProductivity(driver.name) / maxProductivity) * 100
-      }))
-      .sort((a, b) => b.deliveries - a.deliveries);
-  }, [drivers, filteredRegistrations]);
+  const maxProductivity = Math.max(...drivers.map(d => getLocalDriverProductivity(d.name)), 1);
+  
+  const sortedDrivers = [...drivers]
+    .map(driver => ({
+      name: driver.name,
+      deliveries: getLocalDriverProductivity(driver.name),
+      progress: (getLocalDriverProductivity(driver.name) / maxProductivity) * 100
+    }))
+    .sort((a, b) => b.deliveries - a.deliveries);
 
-  const totalKm = React.useMemo(() => {
-    return filteredKmRegistrations.reduce((acc, curr) => {
-      if (curr.total !== 'Em curso') {
-        const value = parseFloat(curr.total.replace(' km', ''));
-        return acc + (isNaN(value) ? 0 : value);
-      }
-      return acc;
-    }, 0);
-  }, [filteredKmRegistrations]);
+  const totalKm = filteredKmRegistrations.reduce((acc, curr) => {
+    if (curr.total !== 'Em curso') {
+      const value = parseFloat(curr.total.replace(' km', ''));
+      return acc + (isNaN(value) ? 0 : value);
+    }
+    return acc;
+  }, 0);
 
-  const allActivities = React.useMemo(() => {
-    return [
-      ...filteredRegistrations.map(r => ({ ...r, type: 'CARGA', sortDate: r.timestamp })),
-      ...filteredKmRegistrations.map(k => ({ ...k, type: 'KM', sortDate: k.date.split('/').reverse().join('-') + 'T' + k.time }))
-    ]
-    .sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime())
-    .filter(activity => {
-      const driverMatch = filterDriver === 'Todos' || (activity.type === 'CARGA' ? activity.driverName : activity.driver) === filterDriver;
-      const typeMatch = filterType === 'Todos' || activity.type === filterType;
-      return driverMatch && typeMatch;
-    });
-  }, [filteredRegistrations, filteredKmRegistrations, filterDriver, filterType]);
+  const allActivities = [
+    ...filteredRegistrations.map(r => ({ ...r, type: 'CARGA', sortDate: r.timestamp })),
+    ...filteredKmRegistrations.map(k => ({ ...k, type: 'KM', sortDate: k.date.split('/').reverse().join('-') + 'T' + k.time }))
+  ]
+  .sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime())
+  .filter(activity => {
+    const driverMatch = filterDriver === 'Todos' || (activity.type === 'CARGA' ? activity.driverName : activity.driver) === filterDriver;
+    const typeMatch = filterType === 'Todos' || activity.type === filterType;
+    return driverMatch && typeMatch;
+  });
 
   return (
     <div className="bg-surface min-h-screen pb-24 md:pb-0">
@@ -317,16 +289,8 @@ export default function AdminDashboard() {
           >
             <div className="flex items-center justify-between mb-10">
               <h2 className="text-2xl font-bold tracking-tight text-primary">Ranking de Produtividade</h2>
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={exportDriversToCSV}
-                  className="flex items-center gap-2 bg-surface-container-high text-primary px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 transition-all shadow-sm border border-primary/10"
-                >
-                  <DownloadIcon size={14} /> Exportar Lista
-                </button>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Meta: 10/dia</span>
-                </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Meta: 10/dia</span>
               </div>
             </div>
             

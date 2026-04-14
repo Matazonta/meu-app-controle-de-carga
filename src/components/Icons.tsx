@@ -35,7 +35,6 @@ import {
   FileSpreadsheet,
   FileJson,
   Zap,
-  Key,
   X
 } from 'lucide-react';
 
@@ -75,5 +74,4 @@ export const DownloadIcon = ({ size = 24, className = "" }) => <Download size={s
 export const ExcelIcon = ({ size = 24, className = "" }) => <FileSpreadsheet size={size} className={className} />;
 export const CsvIcon = ({ size = 24, className = "" }) => <FileJson size={size} className={className} />;
 export const ZapIcon = ({ size = 24, className = "" }) => <Zap size={size} className={className} />;
-export const KeyIcon = ({ size = 24, className = "" }) => <Key size={size} className={className} />;
 export const XIcon = ({ size = 24, className = "" }) => <X size={size} className={className} />;

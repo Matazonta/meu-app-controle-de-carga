@@ -40,8 +40,8 @@ export default function Login() {
       return;
     }
 
-    // First access logic: if password is null or empty string, set it.
-    if (driver.password === null || driver.password === "") {
+    // First access logic: if password is null, set it.
+    if (driver.password === null) {
       updateDriverPassword(driver.name, password.trim());
       setError('');
       login(driver.name, 'driver');
@@ -204,9 +204,8 @@ export default function Login() {
           </div>
         </div>
 
-        <footer className="mt-12 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-50 text-center">
-          © 2023 Controle de Cargas Systems<br/>
-          <span className="text-primary">v1.0.5 • Servidor Ativo</span>
+        <footer className="mt-12 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-50">
+          © 2023 Controle de Cargas Systems V4.2.0
         </footer>
       </motion.div>
     </div>
